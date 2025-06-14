@@ -19,10 +19,7 @@ void ft_print_comb(void)
         if (++k > '9' && ++j > '8' && ++i)
             j = i + 1;
         if (k > '9')
-        int main(){
-
-ft_print_comb();
-    return 0;
-}    k = j + 1;
+            k = j + 1;
     }
 }
+  
