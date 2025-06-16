@@ -38,26 +38,23 @@ jobs:
             created=$(git log --diff-filter=A --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" | head -n 1)
             [ -z "$created" ] && created=$(date +"%Y/%m/%d %H:%M:%S")
             updated=$(date +"%Y/%m/%d %H:%M:%S")
-            
-            if ! head -n 1 "$file" | grep -q "/\* \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*"; then
-              temp_file=$(mktemp)
-              {
-                echo "/* ************************************************************************** */"
-                echo "/*                                                                            */"
-                echo "/*                                                        :::      ::::::::   */"
-                printf "/*   %-47s:+:      :+:    :+:   */\n" "$filename"
-                echo "/*                                                    +:+ +:+         +:+     */"
-                printf "/*   By: %-42s+#+  +:+       +#+        */\n" "SoufianoDev <$email>"
-                echo "/*                                                +#+#+#+#+#+   +#+           */"
-                printf "/*   Created: %s by %-10s#+#    #+#             */\n" "$created" "SoufianoDev"
-                printf "/*   Updated: %s by %-10s###   ########.fr       */\n" "$updated" "SoufianoDev"
-                echo "/*                                                                            */"
-                echo "/* ************************************************************************** */"
-                echo ""
-                cat "$file"
-              } > "$temp_file"
-              mv "$temp_file" "$file"
-            fi
+            tail -n +11 "$file" > "$file.tmp"
+            {
+              echo "/* ************************************************************************** */"
+              echo "/*                                                                            */"
+              echo "/*                                                        :::      ::::::::   */"
+              printf "/*   %-47s:+:      :+:    :+:   */\n" "$filename"
+              echo "/*                                                    +:+ +:+         +:+     */"
+              printf "/*   By: %-37s+#+  +:+       +#+        */\n" "$author <$email>"
+              echo "/*                                                +#+#+#+#+#+   +#+           */"
+              printf "/*   Created: %s by %-10s #+#    #+#             */\n" "$created" "$author"
+              printf "/*   Updated: %s by %-10s ###   ########.fr       */\n" "$updated" "$author"
+              echo "/*                                                                            */"
+              echo "/* ************************************************************************** */"
+              echo ""
+              cat "$file.tmp"
+            } > "$file"
+            rm "$file.tmp"
           done
 
       - name: Format Code
@@ -67,8 +64,8 @@ jobs:
             expand -t 4 "$file" > tmp && mv tmp "$file"
           done
 
-      - uses: stefanzweifel/git-auto-commit-action@v5
+      - uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: "ci: apply norminette format and add 42 headers"
-          commit_user_name: "SoufianoDev"
+          commit_user_name: "${{ github.actor }}"
           commit_user_email: "contact.devsoufiano@gmail.com"
