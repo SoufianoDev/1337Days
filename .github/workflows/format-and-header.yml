@@ -31,7 +31,7 @@ jobs:
           done
 
       - name: Add 42 header to files
-        uses: koj-co/header-comments@v1
+        uses: koj-co/header-comments@main
         with:
           directory: .
 
