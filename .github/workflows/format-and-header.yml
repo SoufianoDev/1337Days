@@ -1,11 +1,11 @@
-name: Add 42 Headers
+name: Update 42 Headers
 
 on:
   push:
     branches: [main]
 
 jobs:
-  add-headers:
+  update-headers:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -19,71 +19,94 @@ jobs:
         run: |
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
-          git config --global pull.rebase true
 
-      - name: Add 42 Headers
+      - name: Process Headers
         run: |
           set -eo pipefail
           author="${{ github.actor }}"
           header_email="contact.devsoufiano@gmail.com"
+          updated=$(date +"%Y/%m/%d %H:%M:%S")
 
-          # Function to generate header
-          generate_header() {
-            local filename=$1
-            local created=$2
-            local updated=$3
-            
-            # Calculate spacing for filename alignment
-            local filename_len=${#filename}
-            local spaces_after_filename=$((51 - 3 - filename_len))
-            (( spaces_after_filename < 1 )) && spaces_after_filename=1
-            
-            # Calculate spacing for "By:" line alignment
-            local by_line="By: $author <$header_email>"
-            local by_line_len=${#by_line}
-            local spaces_before_symbols=$((76 - by_line_len - 3))
-            (( spaces_before_symbols < 1 )) && spaces_before_symbols=1
-            
-            # Generate the header
-            printf "/* ************************************************************************** */\n"
-            printf "/*                                                                            */\n"
-            printf "/*                                                        :::      ::::::::   */\n"
-            printf "/*   %s%*s:+:      :+:    :+:   */\n" "$filename" "$spaces_after_filename" ""
-            printf "/*                                                    +:+ +:+         +:+     */\n"
-            printf "/*   By: %s <%s>%*s+#+  +:+       +#+        */\n" "$author" "$header_email" "$spaces_before_symbols" ""
-            printf "/*                                                +#+#+#+#+#+   +#+           */\n"
-            printf "/*   Created: %s by %-10s #+#    #+#             */\n" "$created" "$author"
-            printf "/*   Updated: %s by %-10s ###   ########.fr       */\n" "$updated" "$author"
-            printf "/*                                                                            */\n"
-            printf "/* ************************************************************************** */\n"
-          }
+          # Reference header template for comparison
+          reference_header='/* ************************************************************************** */
+          /*                                                                            */
+          /*                                                        :::      ::::::::   */
+          /*   ft_putchar.c                                       :+:      :+:    :+:   */
+          /*                                                    +:+ +:+         +:+     */
+          /*   By: SoufianoDev <contact.devsoufiano@gmail.com> +#+  +:+       +#+        */
+          /*                                                +#+#+#+#+#+   +#+           */
+          /*   Created: 2025/06/16 19:52:01 by SoufianoDev       #+#    #+#             */
+          /*   Updated: 2025/06/16 18:52:18 by SoufianoDev       ###   ########.fr       */
+          /*                                                                            */
+          /* ************************************************************************** */'
+
+          # Extract reference values from the template
+          reference_filename="ft_putchar.c"
+          reference_len=${#reference_filename}
+          total_space=47  # Total available space for filename + padding
 
           while IFS= read -r -d '' file; do
             filename=$(basename "$file")
+            filename_len=${#filename}
             
-            # Skip if file already has a header
             if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
-              echo "Skipping $filename (already has header)"
-              continue
+              # For files with existing headers
+              
+              # 1. Get current filename from header
+              current_line=$(grep -m1 -E "/\*   .*:\+:" "$file")
+              current_filename=$(echo "$current_line" | sed -E 's/\/\*   ([^ ]+).*/\1/')
+              current_len=${#current_filename}
+              
+              # 2. Calculate spacing adjustment based on reference
+              len_diff=$((filename_len - reference_len))
+              spaces_after=$((total_space - filename_len))
+              (( spaces_after < 0 )) && spaces_after=0
+              
+              # 3. Generate new line with exact spacing
+              new_line=$(printf "/*   %s%*s:+:      :+:    :+:   */" "$filename" "$spaces_after" "")
+              
+              # 4. Update file with new filename and updated timestamp
+              sed -i -E \
+                -e "s|/\*   ${current_filename}.*:\+:|${new_line}|" \
+                -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
+                "$file"
+              
+              echo "Updated header for $filename (replaced $current_filename)"
+            else
+              # For files without headers
+              created=$(git log --diff-filter=A --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" | head -n1 || date +"%Y/%m/%d %H:%M:%S")
+
+              # Calculate spacing based on reference
+              len_diff=$((filename_len - reference_len))
+              spaces_after=$((total_space - filename_len))
+              (( spaces_after < 0 )) && spaces_after=0
+
+              # Generate new header by replacing reference values
+              new_header=$(echo "$reference_header" | \
+                sed -e "s/${reference_filename}/${filename}/" \
+                    -e "s/2025\/06\/16 19:52:01/${created}/" \
+                    -e "s/2025\/06\/16 18:52:18/${updated}/" | \
+                awk -v fn="$filename" -v sp="$spaces_after" '
+                  /\/\*   .*:\+:/ {
+                    sub(/:\+:/, sprintf("%*s:+:", sp, ""))
+                  }
+                  { print }
+                ')
+
+              # Add new header to file
+              temp_file=$(mktemp)
+              echo "$new_header" > "$temp_file"
+              printf "\n" >> "$temp_file"
+              cat "$file" >> "$temp_file"
+              mv "$temp_file" "$file"
+              
+              echo "Added new header to $filename"
             fi
-
-            # Get creation date from git or use current date
-            created=$(git log --diff-filter=A --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" | head -n1 || date +"%Y/%m/%d %H:%M:%S")
-            updated=$(date +"%Y/%m/%d %H:%M:%S")
-
-            # Add new header
-            temp_file=$(mktemp)
-            generate_header "$filename" "$created" "$updated" > "$temp_file"
-            printf "\n" >> "$temp_file"
-            cat "$file" >> "$temp_file"
-            mv "$temp_file" "$file"
-            
-            echo "Added header to $filename"
           done < <(find . -type f \( -name "*.c" -o -name "*.h" \) -print0)
 
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "ci: add 42 headers to missing files"
+          commit_message: "ci: update headers using reference template"
           commit_user_name: "${{ github.actor }}"
           commit_user_email: "${{ github.actor }}@users.noreply.github.com"
