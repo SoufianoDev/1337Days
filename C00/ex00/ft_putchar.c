@@ -3,7 +3,7 @@
 /*                                                        :::      ::::::::   */
 /*   ft_putchar.c                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: SoufianoDev <contact.devsoufiano@gmail.com>+#+  +:+       +#+        */
+/*   By: SoufianoDev <contact.devsoufiano@gmail.com>  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/06/16 19:50:38 by SoufianoDev #+#    #+#             */
 /*   Updated: 2025/06/16 18:50:56 by SoufianoDev ###   ########.fr       */
