@@ -1,0 +1,43 @@
+name: Format and Add 42 Header
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  format-header:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install norminette
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install norminette
+
+      - name: Run norminette fix (formatting)
+        run: |
+          find . -name "*.c" -o -name "*.h" | while read file; do
+            norminette "$file" || true
+          done
+
+      - name: Add 42 header to files
+        uses: koj-co/header-comments@v1
+        with:
+          directory: .
+
+      - name: Auto-commit changes
+        uses: stefanzweifel/git-auto-commit-action@v6
+        with:
+          commit_message: "ci: format and add 42 header"
+          commit_user_name: "SoufianoDev"
+          commit_user_email: "contact.devsoufiano@gmail.com"
