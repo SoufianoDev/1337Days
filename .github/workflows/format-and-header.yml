@@ -1,4 +1,4 @@
-name: Format and Add 42 Header
+name: Format and Add 42 Header (Shell Script)
 
 on:
   push:
@@ -12,60 +12,33 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Setup Git
+      - name: Setup Git user
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "contact.devsoufiano@gmail.com"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install Norminette
+      - name: Make headergen.sh executable
         run: |
-          python3 -m pip install --upgrade pip
-          pip install norminette
+          chmod +x .github/scripts/headergen.sh
 
-      - name: Add 42 Header
+      - name: Add 42 Header with shell script
         run: |
           author="${{ github.actor }}"
           email="contact.devsoufiano@gmail.com"
-          for file in $(find . -type f \( -name "*.c" -o -name "*.h" \)); do
-            filename=$(basename "$file")
-            created=$(git log --diff-filter=A --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" | head -n 1)
-            [ -z "$created" ] && created=$(date +"%Y/%m/%d %H:%M:%S")
-            updated=$(date +"%Y/%m/%d %H:%M:%S")
-            tail -n +11 "$file" > "$file.tmp"
-            {
-              echo "/* ************************************************************************** */"
-              echo "/*                                                                            */"
-              echo "/*                                                        :::      ::::::::   */"
-              printf "/*   %-47s:+:      :+:    :+:   */\n" "$filename"
-              echo "/*                                                    +:+ +:+         +:+     */"
-              printf "/*   By: %-37s+#+  +:+       +#+        */\n" "$author <$email>"
-              echo "/*                                                +#+#+#+#+#+   +#+           */"
-              printf "/*   Created: %s by %-10s #+#    #+#             */\n" "$created" "$author"
-              printf "/*   Updated: %s by %-10s ###   ########.fr       */\n" "$updated" "$author"
-              echo "/*                                                                            */"
-              echo "/* ************************************************************************** */"
-              echo ""
-              cat "$file.tmp"
-            } > "$file"
-            rm "$file.tmp"
-          done
+          # Run the shell header generator script in scan mode on entire repo
+          ./.github/scripts/headergen.sh --scan . "$author" "$email"
 
-      - name: Format Code
+      - name: Format C code files (remove trailing spaces + convert tabs to 4 spaces)
         run: |
-          for file in $(find . -type f \( -name "*.c" -o -name "*.h" \)); do
-            sed -i 's/[ \t]*$//' "$file"
-            expand -t 4 "$file" > tmp && mv tmp "$file"
-          done
+          find . -type f \( -name "*.c" -o -name "*.h" \) -print0 | \
+          xargs -0 -n1 sh -c 'sed -i "s/[ \t]*$//" "$0"; expand -t 4 "$0" > tmp && mv tmp "$0"' --
 
-      - uses: stefanzweifel/git-auto-commit-action@v6
+      - name: Commit changes if any
+        uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "ci: apply norminette format and add 42 headers"
+          commit_message: "ci: add 42 headers and format code"
           commit_user_name: "${{ github.actor }}"
           commit_user_email: "contact.devsoufiano@gmail.com"
