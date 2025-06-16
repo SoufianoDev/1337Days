@@ -1,11 +1,11 @@
-name: Format and Add 42 Header
+name: Add 42 Headers
 
 on:
   push:
     branches: [main]
 
 jobs:
-  format-and-header:
+  add-headers:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -21,83 +21,69 @@ jobs:
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
           git config --global pull.rebase true
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: Install Norminette
-        run: |
-          pip install --upgrade pip
-          pip install norminette
-
-      - name: Add 42 Header Safely
+      - name: Add 42 Headers
         run: |
           set -eo pipefail
           author="${{ github.actor }}"
           header_email="contact.devsoufiano@gmail.com"
-          current_year=$(date +"%Y")
+
+          # Function to generate header
+          generate_header() {
+            local filename=$1
+            local created=$2
+            local updated=$3
+            
+            # Calculate spacing for filename alignment
+            local filename_len=${#filename}
+            local spaces_after_filename=$((51 - 3 - filename_len))
+            (( spaces_after_filename < 1 )) && spaces_after_filename=1
+            
+            # Calculate spacing for "By:" line alignment
+            local by_line="By: $author <$header_email>"
+            local by_line_len=${#by_line}
+            local spaces_before_symbols=$((76 - by_line_len - 3))
+            (( spaces_before_symbols < 1 )) && spaces_before_symbols=1
+            
+            # Generate the header
+            printf "/* ************************************************************************** */\n"
+            printf "/*                                                                            */\n"
+            printf "/*                                                        :::      ::::::::   */\n"
+            printf "/*   %s%*s:+:      :+:    :+:   */\n" "$filename" "$spaces_after_filename" ""
+            printf "/*                                                    +:+ +:+         +:+     */\n"
+            printf "/*   By: %s <%s>%*s+#+  +:+       +#+        */\n" "$author" "$header_email" "$spaces_before_symbols" ""
+            printf "/*                                                +#+#+#+#+#+   +#+           */\n"
+            printf "/*   Created: %s by %-10s #+#    #+#             */\n" "$created" "$author"
+            printf "/*   Updated: %s by %-10s ###   ########.fr       */\n" "$updated" "$author"
+            printf "/*                                                                            */\n"
+            printf "/* ************************************************************************** */\n"
+          }
 
           while IFS= read -r -d '' file; do
             filename=$(basename "$file")
-            extension="${filename##*.}"
             
-            # Skip files that don't need headers
-            [[ "$filename" == "Makefile" ]] && continue
-            [[ "$filename" == "README"* ]] && continue
-            [[ "$filename" == *".md" ]] && continue
+            # Skip if file already has a header
+            if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
+              echo "Skipping $filename (already has header)"
+              continue
+            fi
 
             # Get creation date from git or use current date
             created=$(git log --diff-filter=A --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" | head -n1 || date +"%Y/%m/%d %H:%M:%S")
             updated=$(date +"%Y/%m/%d %H:%M:%S")
 
-            # Generate header
-            generate_header() {
-              printf "/* ************************************************************************** */\n"
-              printf "/*                                                                            */\n"
-              printf "/*                                                        :::      ::::::::   */\n"
-              printf "/*   %-50s:+:      :+:    :+:   */\n" "$filename"
-              printf "/*                                                    +:+ +:+         +:+     */\n"
-              printf "/*   By: %-40s+#+  +:+       +#+        */\n" "$author <$header_email>"
-              printf "/*                                                +#+#+#+#+#+   +#+           */\n"
-              printf "/*   Created: %s by %-20s #+#    #+#             */\n" "$created" "$author"
-              printf "/*   Updated: %s by %-20s ###   ########.fr       */\n" "$updated" "$author"
-              printf "/*                                                                            */\n"
-              printf "/* ************************************************************************** */\n"
-            }
-
-            # Check if header exists
-            if ! head -n 1 "$file" | grep -q "/\* \*\*\*"; then
-              # Add new header
-              temp_file=$(mktemp)
-              generate_header > "$temp_file"
-              printf "\n" >> "$temp_file"
-              cat "$file" >> "$temp_file"
-              mv "$temp_file" "$file"
-            else
-              # Update existing header
-              sed -i -E \
-                -e "s|(Created: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$created by $author|" \
-                -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
-                "$file"
-            fi
+            # Add new header
+            temp_file=$(mktemp)
+            generate_header "$filename" "$created" "$updated" > "$temp_file"
+            printf "\n" >> "$temp_file"
+            cat "$file" >> "$temp_file"
+            mv "$temp_file" "$file"
+            
+            echo "Added header to $filename"
           done < <(find . -type f \( -name "*.c" -o -name "*.h" \) -print0)
-
-      - name: Format Code
-        run: |
-          find . -type f \( -name "*.c" -o -name "*.h" \) -print0 | while IFS= read -r -d '' file; do
-            # Remove trailing whitespace
-            sed -i 's/[[:space:]]*$//' "$file"
-            # Convert tabs to 4 spaces
-            expand -t 4 "$file" > "$file.tmp" && mv "$file.tmp" "$file"
-            # Ensure newline at EOF
-            sed -i -e '$a\' "$file"
-          done
 
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "ci: format code and update 42 headers"
+          commit_message: "ci: add 42 headers to missing files"
           commit_user_name: "${{ github.actor }}"
           commit_user_email: "${{ github.actor }}@users.noreply.github.com"
