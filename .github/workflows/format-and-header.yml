@@ -6,38 +6,67 @@ on:
       - main
 
 jobs:
-  format-header:
+  format-and-header:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - name: Setup Git
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "contact.devsoufiano@gmail.com"
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install norminette
+      - name: Install Norminette
         run: |
           python3 -m pip install --upgrade pip
           pip install norminette
 
-      - name: Run norminette fix (formatting)
+      - name: Add 42 Header
         run: |
-          find . -name "*.c" -o -name "*.h" | while read file; do
-            norminette "$file" || true
+          author="${{ github.actor }}"
+          email="contact.devsoufiano@gmail.com"
+          for file in $(find . -type f \( -name "*.c" -o -name "*.h" \)); do
+            filename=$(basename "$file")
+            created=$(git log --diff-filter=A --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" | head -n 1)
+            [ -z "$created" ] && created=$(date +"%Y/%m/%d %H:%M:%S")
+            updated=$(date +"%Y/%m/%d %H:%M:%S")
+            tail -n +11 "$file" > "$file.tmp"
+            {
+              echo "/* ************************************************************************** */"
+              echo "/*                                                                            */"
+              echo "/*                                                        :::      ::::::::   */"
+              printf "/*   %-47s:+:      :+:    :+:   */\n" "$filename"
+              echo "/*                                                    +:+ +:+         +:+     */"
+              printf "/*   By: %-37s+#+  +:+       +#+        */\n" "$author <$email>"
+              echo "/*                                                +#+#+#+#+#+   +#+           */"
+              printf "/*   Created: %s by %-10s #+#    #+#             */\n" "$created" "$author"
+              printf "/*   Updated: %s by %-10s ###   ########.fr       */\n" "$updated" "$author"
+              echo "/*                                                                            */"
+              echo "/* ************************************************************************** */"
+              echo
+              cat "$file.tmp"
+            } > "$file"
+            rm "$file.tmp"
           done
 
-      - name: Add 42 header to files
-        uses: koj-co/header-comments@v1.0.5
-        with:
-          directory: .
+      - name: Format Code
+        run: |
+          for file in $(find . -type f \( -name "*.c" -o -name "*.h" \)); do
+            sed -i 's/[ \t]*$//' "$file"
+            awk 'NR==11{print ""; print} NR!=11' "$file" > tmp && mv tmp "$file"
+            expand -t 4 "$file" > tmp && mv tmp "$file"
+          done
 
-      - name: Auto-commit changes
-        uses: stefanzweifel/git-auto-commit-action@v6
+      - uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "ci: format and add 42 header"
-          commit_user_name: "SoufianoDev"
+          commit_message: "ci: apply norminette format and add 42 headers"
+          commit_user_name: "${{ github.actor }}"
           commit_user_email: "contact.devsoufiano@gmail.com"
