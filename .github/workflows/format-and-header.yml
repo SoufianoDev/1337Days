@@ -68,7 +68,7 @@ jobs:
               # 4. Update file with new filename and updated timestamp
               sed -i -E \
                 -e "s|/\*   ${current_filename}.*:\+:|${new_line}|" \
-                -e "s/(Updated: )[0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+/\1$updated by $author/" \
+                -e "s#(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+#\1$updated by $author#" \
                 "$file"
               
               echo "Updated header for $filename (replaced $current_filename)"
