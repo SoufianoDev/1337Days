@@ -23,84 +23,67 @@ jobs:
       - name: Process Headers
         run: |
           set -eo pipefail
-          author="${{ github.actor }}"
+          author="SoufianoDev"
           header_email="contact.devsoufiano@gmail.com"
           updated=$(date +"%Y/%m/%d %H:%M:%S")
-
-          # Reference header template for comparison
-          reference_header='/* ************************************************************************** */
-          /*                                                                            */
-          /*                                                        :::      ::::::::   */
-          /*   ft_putchar.c                                       :+:      :+:    :+:   */
-          /*                                                    +:+ +:+         +:+     */
-          /*   By: SoufianoDev <contact.devsoufiano@gmail.com> +#+  +:+       +#+        */
-          /*                                                +#+#+#+#+#+   +#+           */
-          /*   Created: 2025/06/16 19:52:01 by SoufianoDev       #+#    #+#             */
-          /*   Updated: 2025/06/16 18:52:18 by SoufianoDev       ###   ########.fr       */
-          /*                                                                            */
-          /* ************************************************************************** */'
-
-          # Extract reference values from the template
-          reference_filename="ft_putchar.c"
-          reference_len=${#reference_filename}
-          total_space=47  # Total available space for filename + padding
+          target_length=84
+          ref_filename="ft_putchar.c"
+          ruler="/*   $ref_filename"
+          template_line="$ruler                                       :+:      :+:    :+:   */"
+          spaces_str=${template_line#"$ruler"}
+          spaces_str=${spaces_str%%:+:*}
+          reserved_space=${#spaces_str}
+          suffix=":+:      :+:    :+:   */"
 
           while IFS= read -r -d '' file; do
             filename=$(basename "$file")
             filename_len=${#filename}
-            
+            diff_len=$(( filename_len - ${#ref_filename} ))
+            spaces_after=$(( reserved_space - diff_len ))
+            (( spaces_after < 0 )) && spaces_after=0
+            new_ruler="/*   $filename"
+            new_line=$(printf "%s%*s%s" "$new_ruler" "$spaces_after" "" "$suffix")
+
             if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
-              # For files with existing headers
-              
-              # 1. Get current filename from header
               current_line=$(grep -m1 -E "/\*   .*:\+:" "$file")
               current_filename=$(echo "$current_line" | sed -E 's/\/\*   ([^ ]+).*/\1/')
-              current_len=${#current_filename}
-              
-              # 2. Calculate spacing adjustment based on reference
-              len_diff=$((filename_len - reference_len))
-              spaces_after=$((total_space - filename_len))
-              (( spaces_after < 0 )) && spaces_after=0
-              
-              # 3. Generate new line with exact spacing
-              new_line=$(printf "/*   %s%*s:+:      :+:    :+:   */" "$filename" "$spaces_after" "")
-              
-              # 4. Update file with new filename and updated timestamp
               sed -i -E \
-                -e "s|/\*   ${current_filename}.*:\+:|${new_line}|" \
-                -e "s#(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+#\1$updated by $author#" \
+                -e "s|/\*   ${current_filename}.*\*/|${new_line}|" \
+                -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
                 "$file"
-              
-              echo "Updated header for $filename (replaced $current_filename)"
             else
-              # For files without headers
               created=$(git log --diff-filter=A --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" | head -n1 || date +"%Y/%m/%d %H:%M:%S")
-
-              # Calculate spacing based on reference
-              len_diff=$((filename_len - reference_len))
-              spaces_after=$((total_space - filename_len))
-              (( spaces_after < 0 )) && spaces_after=0
-
-              # Generate new header by replacing reference values
+              
+              # Create the reference header using printf to avoid YAML parsing issues
+              reference_header=$(printf "%s\n" \
+                "/* ************************************************************************** */" \
+                "/*                                                                            */" \
+                "/*                                                        :::      ::::::::   */" \
+                "/*   ft_putchar.c                                       :+:      :+:    :+:   */" \
+                "/*                                                    +:+ +:+         +:+     */" \
+                "/*   By: SoufianoDev <contact.devsoufiano@gmail.com> +#+  +:+       +#+        */" \
+                "/*                                                +#+#+#+#+#+   +#+           */" \
+                "/*   Created: 2025/06/16 19:52:01 by SoufianoDev       #+#    #+#             */" \
+                "/*   Updated: 2025/06/16 18:52:18 by SoufianoDev       ###   ########.fr       */" \
+                "/*                                                                            */" \
+                "/* ************************************************************************** */")
+              
               new_header=$(echo "$reference_header" | \
-                sed -e "s/${reference_filename}/${filename}/" \
-                    -e "s/2025\/06\/16 19:52:01/${created}/" \
-                    -e "s/2025\/06\/16 18:52:18/${updated}/" | \
-                awk -v fn="$filename" -v sp="$spaces_after" '
-                  /\/\*   .*:\+:/ {
-                    sub(/:\+:/, sprintf("%*s:+:", sp, ""))
-                  }
-                  { print }
-                ')
-
-              # Add new header to file
+                sed -e "s|ft_putchar.c|${filename}|" \
+                    -e "s|2025/06/16 19:52:01|${created}|" \
+                    -e "s|2025/06/16 18:52:18|${updated}|")
+              new_header=$(echo "$new_header" | awk -v line="$new_line" '
+                /\/\*   .*:\+:/ {
+                  print line
+                  next
+                }
+                { print }
+              ')
               temp_file=$(mktemp)
               echo "$new_header" > "$temp_file"
               printf "\n" >> "$temp_file"
               cat "$file" >> "$temp_file"
               mv "$temp_file" "$file"
-              
-              echo "Added new header to $filename"
             fi
           done < <(find . -type f \( -name "*.c" -o -name "*.h" \) -print0)
 
