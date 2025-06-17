@@ -6,7 +6,7 @@
 /*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
 /*                                                         +#+#+#+#+#+   +#+         */
 /*       Created: 2025/06/16 18:11:46 by SoufianoDev            #+#    #+#           */
-/*       Updated: 2025/06/17 21:50:30 by SoufianoDev            ###   ########.fr    */
+/*       Updated: 2025/06/17 22:16:18 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
 
@@ -16,7 +16,7 @@ void ft_print_comb(void)
 {
 	char i = '0', j = '1', k = '2';
 
-	while (1)
+	\1 (1)
 	{
 		\1 (i < j && j < k)
 		{

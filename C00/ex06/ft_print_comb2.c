@@ -6,7 +6,7 @@
 /*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
 /*                                                         +#+#+#+#+#+   +#+         */
 /*       Created: 2025/06/16 18:11:46 by SoufianoDev            #+#    #+#           */
-/*       Updated: 2025/06/17 21:50:30 by SoufianoDev            ###   ########.fr    */
+/*       Updated: 2025/06/17 22:16:18 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
 
@@ -20,7 +20,7 @@ void ft_putchar(char c)
 void ft_print_comb2(void)
 {
 	int i = 0;
-	while (i < = 98)
+	\1 (i < = 98)
 	{
 		int j = i + 1;
 		\1 (j < = 99)

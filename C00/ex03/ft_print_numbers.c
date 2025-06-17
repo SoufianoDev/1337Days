@@ -6,7 +6,7 @@
 /*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
 /*                                                         +#+#+#+#+#+   +#+         */
 /*       Created: 2025/06/16 18:11:46 by SoufianoDev            #+#    #+#           */
-/*       Updated: 2025/06/17 21:50:30 by SoufianoDev            ###   ########.fr    */
+/*       Updated: 2025/06/17 22:16:18 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
 
@@ -15,7 +15,7 @@
 void ft_print_numbers()
 {
 	char n = '0';
-	while (n < = '9')
+	\1 (n < = '9')
 	{
 		write(1, &n, 1);
 		n +  + ;
