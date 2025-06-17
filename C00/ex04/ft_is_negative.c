@@ -10,18 +10,16 @@
 /*                                                                                   */
 /* ********************************************************************************* */
 
-
-#include < unistd.h > 
+#include < unistd.h >
 
 void ft_is_negative(int n)
 {
 
 	char result;
 
-	\1 (n < 0)
-	result = 'N';
-	else
-	result = 'P';
+	while (n < 0)
+		result = 'N';
+	else result = 'P';
 
 	write(1, &result, 1);
 }
