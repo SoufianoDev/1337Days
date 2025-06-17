@@ -20,7 +20,11 @@ void ft_putchar(char c)
 void ft_print_comb2(void)
 {
 	int i = 0;
-	\1 (i < = 98)
+	while (condition)
+	{
+		/* code */
+	}
+	 (i < = 98)
 	{
 		int j = i + 1;
 		\1 (j < = 99)

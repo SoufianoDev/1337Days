@@ -15,7 +15,11 @@
 void ft_print_alphabet()
 {
 	char alpha = 'a';
+<<<<<<< HEAD
 	\1 (alpha < = 'z')
+=======
+	while (alpha  <  =   'z')
+>>>>>>> 7bd57b3 (fix)
 	{
 		write(1, &alpha, 1);
 		alpha +  + ;

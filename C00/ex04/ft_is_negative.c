@@ -17,7 +17,7 @@ void ft_is_negative(int n)
 
 	char result;
 
-	\1 (n < 0)
+	while (n < 0)
 	result = 'N';
 	else
 	result = 'P';

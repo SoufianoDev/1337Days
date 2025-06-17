@@ -16,7 +16,7 @@ void ft_print_comb(void)
 {
 	char i = '0', j = '1', k = '2';
 
-	\1 (1)
+	while (1)
 	{
 		\1 (i < j && j < k)
 		{
