@@ -15,7 +15,7 @@
 void ft_print_alphabet()
 {
 	char alpha = 'a';
-	\1 (alpha  <  =   'z')
+	while(alpha  <  =   'z')
 	{
 		write(1, &alpha, 1);
 		alpha +  + ;
