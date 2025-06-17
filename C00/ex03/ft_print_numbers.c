@@ -1,23 +1,23 @@
 /* ********************************************************************************* */
 /*                                                                                   */
 /*                                                                :::      ::::::::  */
-/*   ft_print_numbers.c                                         : + :      : + :    : + :  */
+/*   ft_print_numbers.c                                         :+:      :+:    :+:  */
 /*                                                            +:+ +:+         +:+    */
-/*   By: SoufianoDev  < contact.devsoufiano@gmail.com >          +#+  +:+       +#+      */
-/*                                                         +# + #+# + #+#+   +#+         */
-/*       Created: 2025/06/16 18:11:46 by SoufianoDev            # + #    # + #           */
-/*       Updated: 2025/06/17 15:47:11 by SoufianoDev            ###   ########.fr    */
+/*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
+/*                                                         +#+#+#+#+#+   +#+         */
+/*       Created: 2025/06/16 18:11:46 by SoufianoDev            #+#    #+#           */
+/*       Updated: 2025/06/17 16:28:13 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
 
-#include  < unistd.h >
+#include < unistd.h > 
 
 void ft_print_numbers()
 {
-    char n  =   '0';
-    while (n  <  =   '9')
-    {
-    write(1, &n, 1);
-    n+ + ;
-    }
+	char n = '0';
+	\1 (n  <  =   '9')
+	{
+		write(1, &n, 1);
+		n +  + ;
+	}
 }

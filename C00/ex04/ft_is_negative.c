@@ -1,26 +1,26 @@
 /* ********************************************************************************* */
 /*                                                                                   */
 /*                                                                :::      ::::::::  */
-/*   ft_is_negative.c                                           : + :      : + :    : + :  */
+/*   ft_is_negative.c                                           :+:      :+:    :+:  */
 /*                                                            +:+ +:+         +:+    */
-/*   By: SoufianoDev  < contact.devsoufiano@gmail.com >          +#+  +:+       +#+      */
-/*                                                         +# + #+# + #+#+   +#+         */
-/*       Created: 2025/06/16 18:11:46 by SoufianoDev            # + #    # + #           */
-/*       Updated: 2025/06/17 15:47:11 by SoufianoDev            ###   ########.fr    */
+/*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
+/*                                                         +#+#+#+#+#+   +#+         */
+/*       Created: 2025/06/16 18:11:46 by SoufianoDev            #+#    #+#           */
+/*       Updated: 2025/06/17 16:28:13 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
 
-#include  < unistd.h >
+#include < unistd.h > 
 
 void ft_is_negative(int n)
 {
 
-    char result;
+	char result;
 
-    if (n  <  0)
-    result  =   'N';
-    else
-    result  =   'P';
+	\1 (n  <  0)
+	result = 'N';
+	else
+	result = 'P';
 
-    write(1, &result, 1);
+	write(1, &result, 1);
 }
