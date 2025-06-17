@@ -204,6 +204,6 @@ jobs:
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "ci: update headers using reference template with accurate timestamps"
+          commit_message: "ci: Add 42 header"
           commit_user_name: "${{ github.actor }}"
           commit_user_email: "${{ github.actor }}@users.noreply.github.com"
