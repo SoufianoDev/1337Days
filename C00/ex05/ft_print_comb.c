@@ -1,43 +1,37 @@
 /* ********************************************************************************* */
 /*                                                                                   */
 /*                                                                :::      ::::::::  */
-/*   ft_print_comb.c                                            :+:      :+:    :+:  */
+/*   ft_print_comb.c                                            : + :      : + :    : + :  */
 /*                                                            +:+ +:+         +:+    */
-/*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
-/*                                                         +#+#+#+#+#+   +#+         */
-/*       Created: 2025/06/16 18:11:46 by SoufianoDev            #+#    #+#           */
-/*       Updated: 2025/06/17 03:27:47 by SoufianoDev            ###   ########.fr    */
+/*   By: SoufianoDev  < contact.devsoufiano@gmail.com >          +#+  +:+       +#+      */
+/*                                                         +# + #+# + #+#+   +#+         */
+/*       Created: 2025/06/16 18:11:46 by SoufianoDev            # + #    # + #           */
+/*       Updated: 2025/06/17 15:47:11 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
 
-
-
-
-
-
-
-#include <unistd.h>
+#include  < unistd.h >
 
 void ft_print_comb(void)
 {
-    char i = '0', j = '1', k = '2';
+    char i  =   '0', j  =   '1', k  =   '2';
 
     while (1)
     {
-        if (i < j && j < k)
-        {
-            write(1, &i, 1);
-            write(1, &j, 1);
-            write(1, &k, 1);
-            if (i != '7' || j != '8' || k != '9')
-                write(1, ", ", 2);
-            else
-                break;
-        }
-        if (++k > '9' && ++j > '8' && ++i)
-            j = i + 1;
-        if (k > '9')
-            k = j + 1;
+    if (i  <  j && j  <  k)
+    {
+    write(1, &i, 1);
+    write(1, &j, 1);
+    write(1, &k, 1);
+    if (i !  =   '7' || j !  =   '8' || k !  =   '9')
+    write(1, ", ", 2);
+    else
+    break;
+    }
+    if (+ + k  >  '9' && + + j  >  '8' && + + i)
+    j  =   i + 1;
+    if (k  >  '9')
+    k  =   j + 1;
     }
 }
 

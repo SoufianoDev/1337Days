@@ -1,21 +1,17 @@
 /* ********************************************************************************* */
 /*                                                                                   */
 /*                                                                :::      ::::::::  */
-/*   ft_putchar.c                                               :+:      :+:    :+:  */
+/*   ft_putchar.c                                               : + :      : + :    : + :  */
 /*                                                            +:+ +:+         +:+    */
-/*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
-/*                                                         +#+#+#+#+#+   +#+         */
-/*       Created: 2025/06/16 18:11:46 by SoufianoDev            #+#    #+#           */
-/*       Updated: 2025/06/17 03:27:47 by SoufianoDev            ###   ########.fr    */
+/*   By: SoufianoDev  < contact.devsoufiano@gmail.com >          +#+  +:+       +#+      */
+/*                                                         +# + #+# + #+#+   +#+         */
+/*       Created: 2025/06/16 18:11:46 by SoufianoDev            # + #    # + #           */
+/*       Updated: 2025/06/17 15:47:11 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
 
-
-
-
-
-#include <unistd.h>
+#include  < unistd.h >
 
 void    ft_putchar(char c) {
-    write(1, &c, 1);
-}
+write(1, &c, 1);
+    }
