@@ -6,7 +6,7 @@
 /*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
 /*                                                         +#+#+#+#+#+   +#+         */
 /*       Created: 2025/06/16 18:11:46 by SoufianoDev            #+#    #+#           */
-/*       Updated: 2025/06/17 22:27:51 by SoufianoDev            ###   ########.fr    */
+/*       Updated: 2025/06/17 22:31:19 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
 
@@ -17,7 +17,7 @@ void ft_is_negative(int n)
 
 	char result;
 
-	while (n < 0)
+	\1 (n < 0)
 	result = 'N';
 	else
 	result = 'P';

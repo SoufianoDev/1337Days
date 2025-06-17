@@ -6,7 +6,7 @@
 /*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
 /*                                                         +#+#+#+#+#+   +#+         */
 /*       Created: 2025/06/16 18:11:46 by SoufianoDev            #+#    #+#           */
-/*       Updated: 2025/06/17 22:27:51 by SoufianoDev            ###   ########.fr    */
+/*       Updated: 2025/06/17 22:31:19 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
 
@@ -15,7 +15,7 @@
 void ft_print_reverse_alphabet()
 {
 	char alpha = 'z';
-	while (alpha > = 'a')
+	\1 (alpha > = 'a')
 	{
 		write(1, &alpha, 1);
 		alpha -  - ;
