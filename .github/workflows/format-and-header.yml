@@ -1,4 +1,4 @@
-name: Update 42 Headers & Format Code
+name: Update 42 Headers & Format Code (Safe Comment Protection)
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # This ensures we get full git history
+          fetch-depth: 0
 
       - name: Setup Git
         run: |
@@ -26,7 +26,7 @@ jobs:
           sudo apt-get install -y python3 python3-pip
           pip3 install c-formatter-42
 
-      - name: Process Headers and Format Code
+      - name: Process Headers and Format Code (Safe Comment Protection)
         run: |
           set -eo pipefail
           author="SoufianoDev"
@@ -45,214 +45,382 @@ jobs:
           get_creation_date() {
             local file="$1"
             local git_first_commit=""
-            local filesystem_creation=""
             
-            # Try to get first commit date from git history
+            # Get first commit date from git history
             git_first_commit=$(git log --reverse --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" 2>/dev/null | head -n1 || echo "")
             
-            # Get filesystem creation time (as fallback, but less reliable)
-            if command -v stat >/dev/null 2>&1; then
-              # Linux/Unix systems
-              filesystem_creation=$(stat -c "%W" "$file" 2>/dev/null || echo "")
-              if [ "$filesystem_creation" != "" ] && [ "$filesystem_creation" != "0" ]; then
-                filesystem_creation=$(date -d "@$filesystem_creation" +"%Y/%m/%d %H:%M:%S" 2>/dev/null || echo "")
-              else
-                filesystem_creation=""
-              fi
-            fi
-            
-            # Prefer git history over filesystem metadata
+            # Use git history or fallback to current date
             if [ -n "$git_first_commit" ]; then
               echo "$git_first_commit"
-            elif [ -n "$filesystem_creation" ]; then
-              echo "$filesystem_creation"
             else
-              # Ultimate fallback to current date
               echo "$(date +"%Y/%m/%d %H:%M:%S")"
             fi
           }
 
-          # Custom 42 Code Formatter Function (based on observed patterns)
-          format_42_code() {
+          # Enhanced Comment Protection Function (Header-Safe)
+          protect_comments_safely() {
+            local content="$1"
+            local placeholders_file=$(mktemp)
+            local counter=0
+            local is_header_section="$2"  # true/false flag
+            
+            echo "🛡️  Starting safe comment protection (Header-aware)..."
+            
+            # If this is header section, use more restrictive protection
+            if [ "$is_header_section" = "true" ]; then
+              echo "🏷️  HEADER MODE: Protecting only non-header comments"
+              
+              # Only protect comments that are NOT part of the 42 header structure
+              # Skip lines that match 42 header pattern
+              local working_content="$content"
+              
+              # Protect single-line comments (// style) - these are safe
+              while IFS= read -r line; do
+                if echo "$line" | grep -q '//'; then
+                  local comment_part=$(echo "$line" | sed 's|.*\(//.*\)|\1|')
+                  if [ -n "$comment_part" ] && [ ${#comment_part} -gt 2 ]; then
+                    local placeholder="__PROTECTED_COMMENT_${counter}__"
+                    echo "$placeholder|$comment_part" >> "$placeholders_file"
+                    working_content=$(echo "$working_content" | sed "s|$(echo "$comment_part" | sed 's/[[\.*^$()+?{|\\]/\\&/g')|$placeholder|g")
+                    ((counter++))
+                  fi
+                fi
+              done <<< "$content"
+              
+              # Protect multi-line comments that are NOT 42 header comments
+              while read -r line; do
+                if echo "$line" | grep -q '/\*' && ! echo "$line" | grep -q '\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*'; then
+                  if ! echo "$line" | grep -q -E '^\s*/\*\s*$|^\s*\*\s*$|^\s*\*/\s*$'; then
+                    # This is a regular comment, not a header comment
+                    local comment_match=$(echo "$line" | grep -o '/\*.*\*/' || echo "")
+                    if [ -n "$comment_match" ] && [ ${#comment_match} -gt 4 ]; then
+                      local placeholder="__PROTECTED_COMMENT_${counter}__"
+                      echo "$placeholder|$comment_match" >> "$placeholders_file"
+                      working_content=$(echo "$working_content" | sed "s|$(echo "$comment_match" | sed 's/[[\.*^$()+?{|\\]/\\&/g')|$placeholder|g")
+                      ((counter++))
+                    fi
+                  fi
+                fi
+              done <<< "$content"
+              
+            else
+              echo "💻 CODE MODE: Protecting all comments"
+              
+              # Protect all comments in code section
+              local working_content="$content"
+              
+              # Protect single-line comments
+              while IFS= read -r line; do
+                if echo "$line" | grep -q '//'; then
+                  local comment_part=$(echo "$line" | sed 's|.*\(//.*\)|\1|')
+                  if [ -n "$comment_part" ] && [ ${#comment_part} -gt 2 ]; then
+                    local placeholder="__PROTECTED_COMMENT_${counter}__"
+                    echo "$placeholder|$comment_part" >> "$placeholders_file"
+                    working_content=$(echo "$working_content" | sed "s|$(echo "$comment_part" | sed 's/[[\.*^$()+?{|\\]/\\&/g')|$placeholder|g")
+                    ((counter++))
+                  fi
+                fi
+              done <<< "$content"
+              
+              # Protect multi-line comments
+              local in_comment=false
+              local comment_buffer=""
+              local comment_start_placeholder=""
+              
+              while IFS= read -r line; do
+                if echo "$line" | grep -q '/\*' && [ "$in_comment" = false ]; then
+                  in_comment=true
+                  comment_buffer="$line"
+                  comment_start_placeholder="__PROTECTED_COMMENT_${counter}__"
+                  
+                  if echo "$line" | grep -q '\*/'; then
+                    # Single line comment
+                    local comment_match=$(echo "$line" | grep -o '/\*.*\*/')
+                    if [ -n "$comment_match" ] && [ ${#comment_match} -gt 4 ]; then
+                      echo "$comment_start_placeholder|$comment_match" >> "$placeholders_file"
+                      working_content=$(echo "$working_content" | sed "s|$(echo "$comment_match" | sed 's/[[\.*^$()+?{|\\]/\\&/g')|$comment_start_placeholder|g")
+                      ((counter++))
+                    fi
+                    in_comment=false
+                    comment_buffer=""
+                  fi
+                elif [ "$in_comment" = true ]; then
+                  comment_buffer="$comment_buffer"$'\n'"$line"
+                  
+                  if echo "$line" | grep -q '\*/'; then
+                    # End of multi-line comment
+                    if [ -n "$comment_buffer" ] && [ ${#comment_buffer} -gt 4 ]; then
+                      echo "$comment_start_placeholder|$comment_buffer" >> "$placeholders_file"
+                      local safe_comment=$(echo "$comment_buffer" | sed 's/[[\.*^$()+?{|\\]/\\&/g')
+                      working_content=$(echo "$working_content" | sed "s|$safe_comment|$comment_start_placeholder|g")
+                      ((counter++))
+                    fi
+                    in_comment=false
+                    comment_buffer=""
+                  fi
+                fi
+              done <<< "$content"
+            fi
+            
+            echo "🎯 Protected $counter comments safely"
+            echo "$working_content"
+            echo "PLACEHOLDERS_FILE:$placeholders_file" >&2
+          }
+
+          # Comprehensive Code Elements Protection Function (Comment-Safe)
+          protect_code_elements_safely() {
+            local content="$1"
+            local placeholders_file=$(mktemp)
+            local counter=0
+            
+            echo "🛡️  Starting comprehensive code protection..."
+            
+            # Define code element patterns (excluding comment patterns)
+            local protection_patterns=(
+              # DATA TYPES
+              '\bint\b' '\bchar\b' '\bfloat\b' '\bdouble\b' '\bvoid\b'
+              '\blong\b' '\bshort\b' '\bunsigned\b' '\bsigned\b' '\bconst\b'
+              '\bstatic\b' '\bextern\b' '\bregister\b' '\bvolatile\b' '\binline\b'
+              '\bsize_t\b' '\bssize_t\b' '\bFILE\b' '\bt_[a-zA-Z_][a-zA-Z0-9_]*\b'
+              
+              # CONTROL STRUCTURES
+              '\bif\b' '\belse\b' '\bswitch\b' '\bcase\b' '\bdefault\b'
+              '\bwhile\b' '\bfor\b' '\bdo\b' '\bbreak\b' '\bcontinue\b'
+              '\breturn\b' '\bgoto\b' '\btypedef\b' '\bstruct\b' '\bunion\b' '\benum\b'
+              
+              # PREPROCESSOR DIRECTIVES
+              '^[ \t]*#[ \t]*include\b.*$'
+              '^[ \t]*#[ \t]*define\b.*$'
+              '^[ \t]*#[ \t]*if\b.*$'
+              '^[ \t]*#[ \t]*ifdef\b.*$'
+              '^[ \t]*#[ \t]*ifndef\b.*$'
+              '^[ \t]*#[ \t]*endif\b.*$'
+              
+              # OPERATORS
+              '\+\+' '\--' '\+=' '\-=' '\*=' '\/=' '%='
+              '==' '!=' '<=' '>=' '&&' '\|\|'
+              
+              # STRING LITERALS
+              '"([^"\\\\]|\\\\.)*"'
+              "'([^'\\\\]|\\\\.)*'"
+              
+              # NUMERIC CONSTANTS
+              '\b[0-9]+\.[0-9]*[fF]?\b'
+              '\b[0-9]+[uUlL]*\b'
+              '\b0[xX][0-9a-fA-F]+\b'
+              
+              # IDENTIFIERS (but not in comments)
+              '\b[a-zA-Z_][a-zA-Z0-9_]*\b'
+            )
+            
+            local working_content="$content"
+            
+            # Apply protection patterns
+            for pattern in "${protection_patterns[@]}"; do
+              local matches_found=0
+              
+              # Only protect matches that are NOT inside comments
+              while IFS= read -r line; do
+                # Skip lines that are comments
+                if ! echo "$line" | grep -q -E '^\s*\/\*|^\s*\*|^\s*\/\/'; then
+                  local match=$(echo "$line" | grep -oE "$pattern" | head -n1)
+                  if [ -n "$match" ] && [ "$match" != " " ] && [ ${#match} -gt 1 ]; then
+                    local placeholder="__PROTECTED_CODE_${counter}__"
+                    echo "$placeholder|$match" >> "$placeholders_file"
+                    
+                    local safe_match=$(printf '%s\n' "$match" | sed 's/[[\.*^$()+?{|\\]/\\&/g')
+                    working_content=$(echo "$working_content" | sed "0,/$safe_match/s//$placeholder/")
+                    
+                    ((counter++))
+                    ((matches_found++))
+                  fi
+                fi
+              done <<< "$(echo "$working_content" | grep -E "$pattern" 2>/dev/null || true)"
+              
+              if [ $matches_found -gt 0 ]; then
+                echo "   ✓ Protected $matches_found instances of: $pattern"
+              fi
+            done
+            
+            echo "🎯 Total protected code elements: $counter"
+            echo "$working_content"
+            echo "PLACEHOLDERS_FILE:$placeholders_file" >&2
+          }
+
+          # Universal Restoration Function
+          restore_protected_elements() {
+            local content="$1"
+            local placeholders_file="$2"
+            local restored_content="$content"
+            local restored_count=0
+            
+            if [ -f "$placeholders_file" ] && [ -s "$placeholders_file" ]; then
+              echo "🔓 Restoring protected elements..."
+              
+              while IFS='|' read -r placeholder original; do
+                if [ -n "$placeholder" ] && [ -n "$original" ]; then
+                  if echo "$restored_content" | grep -q "$placeholder"; then
+                    restored_content=$(echo "$restored_content" | sed "s|$placeholder|$original|g")
+                    ((restored_count++))
+                  fi
+                fi
+              done < "$placeholders_file"
+              
+              echo "✅ Successfully restored $restored_count elements"
+              rm -f "$placeholders_file"
+            fi
+            
+            echo "$restored_content"
+          }
+
+          # Header-Safe Formatter
+          format_with_header_protection() {
             local file="$1"
             local temp_file=$(mktemp)
-            local header_lines=""
+            local header_content=""
             local code_content=""
+            local comment_placeholders=""
+            local code_placeholders=""
             
-            # CRITICAL: Always preserve headers - detect header end more accurately
+            echo "🎨 Starting header-safe formatting for: $(basename "$file")"
+            
+            # STEP 1: Separate header from code
             if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
-              # Find the exact end of header (look for the closing comment line)
+              # Find header end
               local header_end_line=$(grep -n "/\* \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\* \*/" "$file" | tail -n 1 | cut -d: -f1)
               
               if [ -n "$header_end_line" ] && [ "$header_end_line" -gt 0 ]; then
-                # Extract header (include the empty line after header if exists)
                 local total_header_lines=$((header_end_line + 1))
+                
+                # Include empty line after header if present
                 if sed -n "${total_header_lines}p" "$file" | grep -q "^$"; then
                   total_header_lines=$((total_header_lines + 1))
                 fi
                 
-                header_lines=$(head -n "$total_header_lines" "$file")
+                header_content=$(head -n "$total_header_lines" "$file")
                 code_content=$(tail -n +$((total_header_lines + 1)) "$file")
+                
+                echo "🏷️  Header separated (${total_header_lines} lines) - PROTECTED from formatting"
               else
-                # Fallback: assume standard 12 lines for header
-                header_lines=$(head -n 12 "$file")
+                # Fallback
+                header_content=$(head -n 12 "$file")
                 code_content=$(tail -n +13 "$file")
+                echo "🏷️  Header separated (12 lines) - PROTECTED from formatting"
               fi
-              
-              echo "🛡️  Header protected - formatting code only (after line $total_header_lines)"
             else
-              # No header found, format entire file
-              echo "📝 No header found - formatting entire file"
-              header_lines=""
+              echo "📝 No header detected - formatting entire file"
+              header_content=""
               code_content=$(cat "$file")
             fi
             
-            # Apply basic 42 formatting rules
-            formatted_code=$(echo "$code_content" | awk '
-            BEGIN {
-              indent_level = 0
-              in_function = 0
-              prev_line = ""
-              brace_next_line = 0
-            }
+            # STEP 2: Protect comments in code section ONLY
+            local protected_code
+            if [ -n "$code_content" ]; then
+              protected_code=$(protect_comments_safely "$code_content" "false" 2>/tmp/comment_placeholders_stderr)
+              comment_placeholders=$(grep "PLACEHOLDERS_FILE:" /tmp/comment_placeholders_stderr 2>/dev/null | cut -d: -f2- || echo "")
+              
+              # STEP 3: Protect other code elements
+              protected_code=$(protect_code_elements_safely "$protected_code" 2>/tmp/code_placeholders_stderr)
+              code_placeholders=$(grep "PLACEHOLDERS_FILE:" /tmp/code_placeholders_stderr 2>/dev/null | cut -d: -f2- || echo "")
+            else
+              protected_code=""
+            fi
             
-            # Remove trailing spaces
-            { gsub(/[ \t]+$/, "") }
-            
-            # Skip empty lines processing
-            /^[ \t]*$/ { 
-              if (NR > 1 && prev_line != "") print ""
-              prev_line = $0
-              next 
-            }
-            
-            # Handle opening braces
-            /{/ {
-              if (match($0, /^[ \t]*{[ \t]*$/)) {
-                # Standalone opening brace
-                for(i=0; i<indent_level; i++) printf "\t"
-                print "{"
-                indent_level++
-              } else if (match($0, /{.*}$/)) {
-                # Single line block
-                for(i=0; i<indent_level; i++) printf "\t"
+            # STEP 4: Apply minimal formatting (only to protected code)
+            local formatted_code
+            if [ -n "$protected_code" ]; then
+              formatted_code=$(echo "$protected_code" | awk '
+              BEGIN {
+                indent_level = 0
+              }
+              
+              # Skip empty lines
+              /^[ \t]*$/ { 
+                print ""
+                next 
+              }
+              
+              # Skip protected placeholders
+              /^[ \t]*__PROTECTED_/ {
                 print $0
-              } else {
-                # Line with opening brace and content
-                gsub(/{/, "\n{")
+                next
+              }
+              
+              # Handle braces
+              /{/ {
                 gsub(/^[ \t]+/, "")
                 for(i=0; i<indent_level; i++) printf "\t"
                 print $0
-                indent_level++
+                if (/{$/) indent_level++
+                next
               }
-              prev_line = $0
-              next
-            }
-            
-            # Handle closing braces
-            /}/ {
-              if (match($0, /^[ \t]*}[ \t]*$/)) {
-                # Standalone closing brace
-                indent_level--
-                if (indent_level < 0) indent_level = 0
-                for(i=0; i<indent_level; i++) printf "\t"
-                print "}"
-              } else {
-                # Mixed line with closing brace
-                indent_level--
-                if (indent_level < 0) indent_level = 0
-                for(i=0; i<indent_level; i++) printf "\t"
+              
+              /}/ {
+                if (/^[ \t]*}/) {
+                  indent_level--
+                  if (indent_level < 0) indent_level = 0
+                }
                 gsub(/^[ \t]+/, "")
-                print $0
-              }
-              prev_line = $0
-              next
-            }
-            
-            # Handle function declarations
-            /^[a-zA-Z_][a-zA-Z0-9_]*[ \t]+[a-zA-Z_][a-zA-Z0-9_]*[ \t]*\(/ {
-              gsub(/^[ \t]+/, "")
-              # Ensure proper spacing in function declaration
-              gsub(/[ \t]*\(/, "\t(")
-              gsub(/\t\(/, "(")
-              print $0
-              in_function = 1
-              prev_line = $0
-              next
-            }
-            
-            # Handle variable declarations (simple heuristic)
-            /^[ \t]*(int|char|float|double|void|long|short|unsigned)[ \t]+/ {
-              gsub(/^[ \t]+/, "")
-              for(i=0; i<indent_level; i++) printf "\t"
-              # Normalize spacing in declarations
-              gsub(/[ \t]+/, "\t", $0)
-              gsub(/\t/, " ")
-              gsub(/  +/, " ")
-              print $0
-              prev_line = $0
-              next
-            }
-            
-            # Handle control structures (if, while, for, etc.)
-            /(if|while|for|else)[ \t]*\(/ {
-              gsub(/^[ \t]+/, "")
-              for(i=0; i<indent_level; i++) printf "\t"
-              # Ensure proper spacing around parentheses
-              gsub(/(if|while|for|else)[ \t]*\(/, "\\1 (")
-              print $0
-              prev_line = $0
-              next
-            }
-            
-            # Handle regular code lines
-            {
-              gsub(/^[ \t]+/, "")
-              if (length($0) > 0) {
                 for(i=0; i<indent_level; i++) printf "\t"
-                # Fix spacing around operators
-                gsub(/[ \t]*=[ \t]*/, " = ")
-                gsub(/[ \t]*\+[ \t]*/, " + ")
-                gsub(/[ \t]*-[ \t]*/, " - ")
-                gsub(/[ \t]*\*[ \t]*/, " * ")
-                gsub(/[ \t]*\/[ \t]*/, " / ")
-                gsub(/[ \t]*<[ \t]*/, " < ")
-                gsub(/[ \t]*>[ \t]*/, " > ")
-                gsub(/[ \t]*<=[ \t]*/, " <= ")
-                gsub(/[ \t]*>=[ \t]*/, " >= ")
-                gsub(/[ \t]*==[ \t]*/, " == ")
-                gsub(/[ \t]*!=[ \t]*/, " != ")
-                
-                # Fix spacing around commas
-                gsub(/,[ \t]*/, ", ")
-                gsub(/;[ \t]*/, ";")
-                
                 print $0
+                next
               }
-              prev_line = $0
-            }
-            ')
-            
-            # Combine header and formatted code SAFELY
-            if [ -n "$header_lines" ]; then
-              echo "🔗 Reassembling: Header + Formatted Code"
+              
+              # Other lines
               {
-                echo "$header_lines"
-                echo ""  # Ensure there's a blank line after header
+                gsub(/^[ \t]+/, "")
+                if (length($0) > 0) {
+                  for(i=0; i<indent_level; i++) printf "\t"
+                  print $0
+                } else {
+                  print ""
+                }
+              }
+              ')
+            else
+              formatted_code=""
+            fi
+            
+            # STEP 5: Restore protected elements
+            if [ -n "$code_placeholders" ]; then
+              formatted_code=$(restore_protected_elements "$formatted_code" "$code_placeholders")
+            fi
+            
+            if [ -n "$comment_placeholders" ]; then
+              formatted_code=$(restore_protected_elements "$formatted_code" "$comment_placeholders")
+            fi
+            
+            # STEP 6: Reassemble file (Header remains UNTOUCHED)
+            if [ -n "$header_content" ]; then
+              echo "🔗 Reassembling: Protected Header + Formatted Code"
+              {
+                echo "$header_content"
+                echo ""
                 echo "$formatted_code"
               } > "$temp_file"
             else
-              echo "💾 Saving formatted code (no header)"
+              echo "💾 Saving formatted code"
               echo "$formatted_code" > "$temp_file"
             fi
             
-            # Replace original file with formatted version
+            # Replace original
             mv "$temp_file" "$file"
+            
+            # Cleanup
+            rm -f /tmp/comment_placeholders_stderr /tmp/code_placeholders_stderr
+            
+            echo "✅ Header-safe formatting completed"
           }
 
-          # Process all C files
+          # Main processing loop
+          echo "🚀 Starting header-safe processing..."
+          echo "===================================="
+          
+          file_count=0
           while IFS= read -r -d '' file; do
-            echo "🔧 Processing: $file"
+            ((file_count++))
+            echo ""
+            echo "📁 File $file_count: $(basename "$file")"
             
             filename=$(basename "$file")
             filename_len=${#filename}
@@ -262,57 +430,31 @@ jobs:
             new_ruler="/*   $filename"
             new_line=$(printf "%s%*s%s" "$new_ruler" "$spaces_after" "" "$suffix")
 
-            # STEP 1: Handle Header Logic (Original Logic)
+            # STEP 1: Process header (separate logic, well-tested)
+            echo "   🏷️  Processing header..."
             if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
-              # File already has header, check if we need to update it
-              
-              # Get the accurate creation date for comparison
               accurate_created=$(get_creation_date "$file")
               
-              # Extract current creation date from header
-              current_created_line=$(grep -E "Created: [0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}" "$file" 2>/dev/null || echo "")
-              current_created=""
-              if [ -n "$current_created_line" ]; then
-                current_created=$(echo "$current_created_line" | sed -E 's/.*Created: ([0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}).*/\1/')
-              fi
+              # Check if header needs update
+              needs_update=false
+              current_header_width=$(head -n 1 "$file" | wc -c)
+              current_header_width=$((current_header_width - 1))
               
-              # Check if header format needs complete update (preventive measure)
-              header_lines=$(head -n 11 "$file")
-              current_header_width=$(echo "$header_lines" | head -n 1 | wc -c)
-              current_header_width=$((current_header_width - 1))  # Remove newline character
-              
-              needs_complete_update=false
-              
-              # Check if header width doesn't match new format (85 chars)
               if [ "$current_header_width" -ne 85 ]; then
-                needs_complete_update=true
-                echo "🔄 Header format outdated for $filename (width: $current_header_width → 85)"
+                needs_update=true
+                echo "   🔄 Header width: $current_header_width → 85"
               fi
               
-              # Check if creation date needs correction
-              if [ -n "$current_created" ] && [ "$current_created" != "$accurate_created" ]; then
-                needs_complete_update=true
-                echo "⚠️  Correcting creation date for $filename: $current_created → $accurate_created"
-              fi
-              
-              # Check if filename in header is correct
               current_line=$(grep -m1 -E "/\*   .*:\+:" "$file" 2>/dev/null || echo "")
               if [ -n "$current_line" ]; then
                 current_filename=$(echo "$current_line" | sed -E 's/\/\*   ([^ ]+).*/\1/')
                 if [ "$current_filename" != "$filename" ]; then
-                  needs_complete_update=true
-                  echo "📝 Correcting filename in header: $current_filename → $filename"
+                  needs_update=true
+                  echo "   📝 Filename: $current_filename → $filename"
                 fi
               fi
               
-              if [ "$needs_complete_update" = true ]; then
-                # Complete header replacement - preserve creation date if accurate, otherwise use corrected one
-                final_created="$accurate_created"
-                if [ -n "$current_created" ] && [ "$current_created" = "$accurate_created" ]; then
-                  final_created="$current_created"
-                fi
-                
-                # Create new header with correct format
+              if [ "$needs_update" = true ]; then
                 new_header=$(printf "%s\n" \
                   "/* ********************************************************************************* */" \
                   "/*                                                                                   */" \
@@ -321,12 +463,11 @@ jobs:
                   "/*                                                            +:+ +:+         +:+    */" \
                   "/*   By: $author <$header_email>         +#+  +:+       +#+      */" \
                   "/*                                                         +#+#+#+#+#+   +#+         */" \
-                  "/*       Created: $final_created by $author            #+#    #+#           */" \
+                  "/*       Created: $accurate_created by $author            #+#    #+#           */" \
                   "/*       Updated: $updated by $author            ###   ########.fr    */" \
                   "/*                                                                                   */" \
                   "/* ********************************************************************************* */")
                 
-                # Apply dynamic spacing for filename line
                 new_header=$(echo "$new_header" | awk -v line="$new_line" '
                   /\/\*   .*:\+:/ {
                     print line
@@ -335,45 +476,39 @@ jobs:
                   { print }
                 ')
                 
-                # Replace the old header (first 11 lines) with new header
                 temp_file=$(mktemp)
                 echo "$new_header" > "$temp_file"
                 printf "\n" >> "$temp_file"
                 tail -n +12 "$file" >> "$temp_file"
                 mv "$temp_file" "$file"
                 
-                echo "✅ Header completely updated for $filename"
+                echo "   ✅ Header updated"
               else
-                # Minor updates only if needed
+                # Only update timestamp if file changed
                 if ! git diff --quiet HEAD -- "$file" 2>/dev/null; then
-                  # File has changes, update Updated date only
                   sed -i -E \
                     -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
                     "$file"
+                  echo "   📅 Timestamp updated"
                 fi
               fi
             else
-              # File doesn't have header, create new one with accurate creation date
+              # Add new header
               created=$(get_creation_date "$file")
               
-              # Create the reference header using printf to avoid YAML parsing issues
-              reference_header=$(printf "%s\n" \
+              new_header=$(printf "%s\n" \
                 "/* ********************************************************************************* */" \
                 "/*                                                                                   */" \
                 "/*                                                                :::      ::::::::  */" \
-                "/*   ft_putchar.c                                               :+:      :+:    :+:  */" \
+                "/*   $filename                                               :+:      :+:    :+:  */" \
                 "/*                                                            +:+ +:+         +:+    */" \
-                "/*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */" \
+                "/*   By: $author <$header_email>         +#+  +:+       +#+      */" \
                 "/*                                                         +#+#+#+#+#+   +#+         */" \
-                "/*       Created: 2025/06/17 02:01:35 by SoufianoDev            #+#    #+#           */" \
-                "/*       Updated: 2025/06/17 01:01:51 by SoufianoDev            ###   ########.fr    */" \
+                "/*       Created: $created by $author            #+#    #+#           */" \
+                "/*       Updated: $updated by $author            ###   ########.fr    */" \
                 "/*                                                                                   */" \
                 "/* ********************************************************************************* */")
               
-              new_header=$(echo "$reference_header" | \
-                sed -e "s|ft_putchar.c|${filename}|" \
-                    -e "s|2025/06/17 02:01:35|${created}|" \
-                    -e "s|2025/06/17 01:01:51|${updated}|")
               new_header=$(echo "$new_header" | awk -v line="$new_line" '
                 /\/\*   .*:\+:/ {
                   print line
@@ -381,56 +516,30 @@ jobs:
                 }
                 { print }
               ')
+              
               temp_file=$(mktemp)
               echo "$new_header" > "$temp_file"
               printf "\n" >> "$temp_file"
               cat "$file" >> "$temp_file"
               mv "$temp_file" "$file"
               
-              echo "✅ Header added to $filename"
+              echo "   ✅ New header added"
             fi
             
-            # STEP 2: Apply Code Formatting (New Logic)
-            echo "🎨 Formatting code in $filename..."
+            # STEP 2: Apply header-safe formatting
+            echo "   🎨 Applying header-safe formatting..."
+            format_with_header_protection "$file"
             
-            # CRITICAL: Use header-aware formatting only
-            # Never use c-formatter-42 directly on files with headers as it might corrupt them
-            if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
-              echo "🛡️  Header detected - using custom header-safe formatter only"
-              format_42_code "$file"
-              echo "✅ Header-safe formatting applied to $filename"
-            else
-              # No header present, can try professional formatter
-              if command -v c_formatter_42 >/dev/null 2>&1; then
-                echo "Using c-formatter-42 for $filename (no header present)"
-                temp_formatted=$(mktemp)
-                c_formatter_42 < "$file" > "$temp_formatted" 2>/dev/null || {
-                  echo "⚠️  c-formatter-42 failed, using custom formatter"
-                  format_42_code "$file"
-                }
-                if [ -s "$temp_formatted" ]; then
-                  mv "$temp_formatted" "$file"
-                  echo "✅ Professional formatting applied to $filename"
-                else
-                  rm -f "$temp_formatted"
-                  format_42_code "$file"
-                  echo "✅ Custom formatting applied to $filename"
-                fi
-              else
-                # Use custom formatter
-                format_42_code "$file"
-                echo "✅ Custom formatting applied to $filename"
-              fi
-            fi
-            
-            echo "🎯 Completed processing $filename"
-            echo "---"
+            echo "   ✅ Successfully processed: $filename"
             
           done < <(find . -type f \( -name "*.c" -o -name "*.h" \) -print0)
+          
+          echo ""
+          echo "🏁 COMPLETED: $file_count files processed with header-safe comment protection"
 
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "CI: Add 42 headers and format code"
+          commit_message: "ci: Update 42 headers and format code (header-safe comment protection)"
           commit_user_name: "${{ github.actor }}"
           commit_user_email: "${{ github.actor }}@users.noreply.github.com"
