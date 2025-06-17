@@ -26,14 +26,14 @@ jobs:
           author="SoufianoDev"
           header_email="contact.devsoufiano@gmail.com"
           updated=$(date +"%Y/%m/%d %H:%M:%S")
-          target_length=84
+          target_length=85
           ref_filename="ft_putchar.c"
           ruler="/*   $ref_filename"
-          template_line="$ruler                                       :+:      :+:    :+:   */"
+          template_line="$ruler                                               :+:      :+:    :+:  */"
           spaces_str=${template_line#"$ruler"}
           spaces_str=${spaces_str%%:+:*}
           reserved_space=${#spaces_str}
-          suffix=":+:      :+:    :+:   */"
+          suffix=":+:      :+:    :+:  */"
 
           # Function to get the most accurate creation date
           get_creation_date() {
@@ -137,22 +137,22 @@ jobs:
               
               # Create the reference header using printf to avoid YAML parsing issues
               reference_header=$(printf "%s\n" \
-                "/* ************************************************************************** */" \
-                "/*                                                                            */" \
-                "/*                                                        :::      ::::::::   */" \
-                "/*   ft_putchar.c                                       :+:      :+:    :+:   */" \
-                "/*                                                    +:+ +:+         +:+     */" \
-                "/*   By: SoufianoDev <contact.devsoufiano@gmail.com> +#+  +:+       +#+        */" \
-                "/*                                                +#+#+#+#+#+   +#+           */" \
-                "/*   Created: 2025/06/16 19:52:01 by SoufianoDev       #+#    #+#             */" \
-                "/*   Updated: 2025/06/16 18:52:18 by SoufianoDev       ###   ########.fr       */" \
-                "/*                                                                            */" \
-                "/* ************************************************************************** */")
+                "/* ********************************************************************************* */" \
+                "/*                                                                                   */" \
+                "/*                                                                :::      ::::::::  */" \
+                "/*   ft_putchar.c                                               :+:      :+:    :+:  */" \
+                "/*                                                            +:+ +:+         +:+    */" \
+                "/*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */" \
+                "/*                                                         +#+#+#+#+#+   +#+         */" \
+                "/*       Created: 2025/06/17 02:01:35 by SoufianoDev            #+#    #+#           */" \
+                "/*       Updated: 2025/06/17 01:01:51 by SoufianoDev            ###   ########.fr    */" \
+                "/*                                                                                   */" \
+                "/* ********************************************************************************* */")
               
               new_header=$(echo "$reference_header" | \
                 sed -e "s|ft_putchar.c|${filename}|" \
-                    -e "s|2025/06/16 19:52:01|${created}|" \
-                    -e "s|2025/06/16 18:52:18|${updated}|")
+                    -e "s|2025/06/17 02:01:35|${created}|" \
+                    -e "s|2025/06/17 01:01:51|${updated}|")
               new_header=$(echo "$new_header" | awk -v line="$new_line" '
                 /\/\*   .*:\+:/ {
                   print line
@@ -171,6 +171,6 @@ jobs:
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "ci: add 42 Network header"
+          commit_message: "ci: update headers using reference template with accurate timestamps"
           commit_user_name: "${{ github.actor }}"
           commit_user_email: "${{ github.actor }}@users.noreply.github.com"
