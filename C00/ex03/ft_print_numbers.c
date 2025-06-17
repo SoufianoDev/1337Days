@@ -18,6 +18,6 @@ void ft_print_numbers()
 	while (n < = '9')
 	{
 		write(1, &n, 1);
-		n ++;
+		n++;
 	}
 }

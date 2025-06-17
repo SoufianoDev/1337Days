@@ -32,8 +32,8 @@ void ft_print_comb2(void)
 			ft_putchar((j % 10) + '0');
 			while (!(i = = 98 &&j = = 99))
 				write(1, ", ", 2);
-			j ++;
+			j++;
 		}
-		i ++;
+		i++;
 	}
 }
