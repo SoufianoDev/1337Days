@@ -1,11 +1,11 @@
-name: Update 42 Headers
+name: Update 42 Headers and Format Code
 
 on:
   push:
     branches: [main]
 
 jobs:
-  update-headers:
+  update-headers-and-format:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -20,7 +20,7 @@ jobs:
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Process Headers
+      - name: Process Headers and Format Code
         run: |
           set -eo pipefail
           author="SoufianoDev"
@@ -34,6 +34,132 @@ jobs:
           spaces_str=${spaces_str%%:+:*}
           reserved_space=${#spaces_str}
           suffix=":+:      :+:    :+:  */"
+
+          # Function to format C code according to 42 norminette standards
+          format_c_code() {
+            local file="$1"
+            local temp_file=$(mktemp)
+            local in_function=false
+            local brace_level=0
+            local line_num=0
+            local header_end=0
+            
+            # Find where header ends (look for the closing comment of header)
+            while IFS= read -r line; do
+              line_num=$((line_num + 1))
+              if [[ "$line" =~ ^/\*.*\*/$  ]] && [ $line_num -gt 5 ]; then
+                header_end=$line_num
+                break
+              fi
+            done < "$file"
+            
+            line_num=0
+            
+            while IFS= read -r line; do
+              line_num=$((line_num + 1))
+              
+              # Skip header formatting
+              if [ $line_num -le $header_end ]; then
+                echo "$line" >> "$temp_file"
+                continue
+              fi
+              
+              # Remove trailing whitespace
+              line=$(echo "$line" | sed 's/[[:space:]]*$//')
+              
+              # Skip empty lines (but preserve them)
+              if [[ -z "$line" ]]; then
+                echo "" >> "$temp_file"
+                continue
+              fi
+              
+              # Format different types of lines
+              if [[ "$line" =~ ^#include ]]; then
+                # Include statements - no indentation
+                echo "$line" >> "$temp_file"
+                
+              elif [[ "$line" =~ ^[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]+[a-zA-Z_][a-zA-Z0-9_]*\(.*\)$ ]]; then
+                # Function declarations/definitions
+                # Add space between return type and function name if needed
+                formatted_line=$(echo "$line" | sed -E 's/^([a-zA-Z_][a-zA-Z0-9_]*)\t([a-zA-Z_][a-zA-Z0-9_]*\()/\1\t\2/')
+                echo "$formatted_line" >> "$temp_file"
+                in_function=true
+                
+              elif [[ "$line" =~ ^\{ ]]; then
+                # Opening brace on its own line
+                printf "%*s{\n" $((brace_level * 4)) "" >> "$temp_file"
+                brace_level=$((brace_level + 1))
+                
+              elif [[ "$line" =~ ^\} ]]; then
+                # Closing brace
+                brace_level=$((brace_level - 1))
+                printf "%*s}\n" $((brace_level * 4)) "" >> "$temp_file"
+                
+              else
+                # Regular code lines - apply proper indentation
+                # Remove existing indentation and apply correct one
+                clean_line=$(echo "$line" | sed 's/^[[:space:]]*//')
+                
+                # Skip if line is empty after cleaning
+                if [[ -z "$clean_line" ]]; then
+                  echo "" >> "$temp_file"
+                  continue
+                fi
+                
+                # Calculate indentation level
+                local indent_level=$brace_level
+                
+                # Special cases for control structures
+                if [[ "$clean_line" =~ ^(if|while|for|else)[[:space:]]*\( ]] || [[ "$clean_line" =~ ^else$ ]]; then
+                  # Control structures at current brace level
+                  printf "%*s%s\n" $((indent_level * 4)) "" "$clean_line" >> "$temp_file"
+                else
+                  # Regular statements - indent one level more if inside braces
+                  if [ $brace_level -gt 0 ]; then
+                    printf "%*s%s\n" $((indent_level * 4)) "" "$clean_line" >> "$temp_file"
+                  else
+                    echo "$clean_line" >> "$temp_file"
+                  fi
+                fi
+              fi
+              
+            done < "$file"
+            
+            # Apply additional formatting fixes
+            # Fix spacing around operators and keywords
+            sed -i -E '
+              # Add space after keywords
+              s/\b(if|while|for|return)\(/\1 (/g
+              # Fix spacing around operators (but be careful with pointer operations)
+              s/([^*])=([^=])/\1 = \2/g
+              s/([^=])([<>]=?|[!=]=)/\1 \2/g
+              s/([<>!=]=?)([^=])/\1 \2/g
+              # Fix spacing around arithmetic operators
+              s/([^[:space:]])\+([^[:space:]+=])/\1 + \2/g
+              s/([^[:space:]])-([^[:space:]>-])/\1 - \2/g
+              # Fix spacing after commas
+              s/,([^[:space:]])/, \1/g
+              # Fix spacing after semicolons in for loops
+              s/;([^[:space:]])/; \1/g
+            ' "$temp_file"
+            
+            # Remove multiple consecutive empty lines
+            awk '
+              BEGIN { empty_count = 0 }
+              /^$/ { 
+                empty_count++
+                if (empty_count <= 1) print
+                next
+              }
+              { 
+                empty_count = 0
+                print 
+              }
+            ' "$temp_file" > "${temp_file}.clean"
+            
+            mv "${temp_file}.clean" "$temp_file"
+            mv "$temp_file" "$file"
+          }
 
           # Function to get the most accurate creation date
           get_creation_date() {
@@ -67,6 +193,8 @@ jobs:
           }
 
           while IFS= read -r -d '' file; do
+            echo "🔄 Processing: $(basename "$file")"
+            
             filename=$(basename "$file")
             filename_len=${#filename}
             diff_len=$(( filename_len - ${#ref_filename} ))
@@ -198,12 +326,20 @@ jobs:
               printf "\n" >> "$temp_file"
               cat "$file" >> "$temp_file"
               mv "$temp_file" "$file"
+              
+              echo "✅ Header added to $filename"
             fi
+            
+            # Format the code according to 42 norminette standards
+            echo "🎨 Formatting code for $filename..."
+            format_c_code "$file"
+            echo "✅ Code formatted for $filename"
+            
           done < <(find . -type f \( -name "*.c" -o -name "*.h" \) -print0)
 
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "ci: Add 42 header"
+          commit_message: "ci: Add 42 header and format code"
           commit_user_name: "${{ github.actor }}"
           commit_user_email: "${{ github.actor }}@users.noreply.github.com"
