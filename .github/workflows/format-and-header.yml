@@ -1,11 +1,11 @@
-name: Update 42 Headers & Format Code
+name: Update 42 Headers
 
 on:
   push:
     branches: [main]
 
 jobs:
-  update-headers-and-format:
+  update-headers:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -20,13 +20,7 @@ jobs:
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Install Python and c-formatter-42
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3 python3-pip
-          pip3 install c-formatter-42
-
-      - name: Process Headers and Format Code
+      - name: Process Headers
         run: |
           set -eo pipefail
           author="SoufianoDev"
@@ -72,189 +66,7 @@ jobs:
             fi
           }
 
-          # Custom 42 Code Formatter Function (FIXED VERSION)
-          format_42_code() {
-            local file="$1"
-            local temp_file=$(mktemp)
-            local header_lines=""
-            local code_content=""
-            
-            # CRITICAL: Always preserve headers - detect header end more accurately
-            if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
-              # Find the exact end of header (look for the closing comment line)
-              local header_end_line=$(grep -n "/\* \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\* \*/" "$file" | tail -n 1 | cut -d: -f1)
-              
-              if [ -n "$header_end_line" ] && [ "$header_end_line" -gt 0 ]; then
-                # Extract header (include the empty line after header if exists)
-                local total_header_lines=$((header_end_line + 1))
-                if sed -n "${total_header_lines}p" "$file" | grep -q "^$"; then
-                  total_header_lines=$((total_header_lines + 1))
-                fi
-                
-                header_lines=$(head -n "$total_header_lines" "$file")
-                code_content=$(tail -n +$((total_header_lines + 1)) "$file")
-              else
-                # Fallback: assume standard 12 lines for header
-                header_lines=$(head -n 12 "$file")
-                code_content=$(tail -n +13 "$file")
-              fi
-              
-              echo "🛡️  Header protected - formatting code only (after line $total_header_lines)"
-            else
-              # No header found, format entire file
-              echo "📝 No header found - formatting entire file"
-              header_lines=""
-              code_content=$(cat "$file")
-            fi
-            
-            # Apply basic 42 formatting rules - FIXED VERSION
-            formatted_code=$(echo "$code_content" | awk '
-            BEGIN {
-              indent_level = 0
-              in_function = 0
-              prev_line = ""
-              brace_next_line = 0
-            }
-            
-            # Remove trailing spaces
-            { gsub(/[ \t]+$/, "") }
-            
-            # Skip empty lines processing
-            /^[ \t]*$/ { 
-              if (NR > 1 && prev_line != "") print ""
-              prev_line = $0
-              next 
-            }
-            
-            # Handle opening braces
-            /{/ {
-              if (match($0, /^[ \t]*{[ \t]*$/)) {
-                # Standalone opening brace
-                for(i=0; i<indent_level; i++) printf "\t"
-                print "{"
-                indent_level++
-              } else if (match($0, /{.*}$/)) {
-                # Single line block
-                for(i=0; i<indent_level; i++) printf "\t"
-                print $0
-              } else {
-                # Line with opening brace and content
-                gsub(/{/, "\n{")
-                gsub(/^[ \t]+/, "")
-                for(i=0; i<indent_level; i++) printf "\t"
-                print $0
-                indent_level++
-              }
-              prev_line = $0
-              next
-            }
-            
-            # Handle closing braces
-            /}/ {
-              if (match($0, /^[ \t]*}[ \t]*$/)) {
-                # Standalone closing brace
-                indent_level--
-                if (indent_level < 0) indent_level = 0
-                for(i=0; i<indent_level; i++) printf "\t"
-                print "}"
-              } else {
-                # Mixed line with closing brace
-                indent_level--
-                if (indent_level < 0) indent_level = 0
-                for(i=0; i<indent_level; i++) printf "\t"
-                gsub(/^[ \t]+/, "")
-                print $0
-              }
-              prev_line = $0
-              next
-            }
-            
-            # Handle function declarations
-            /^[a-zA-Z_][a-zA-Z0-9_]*[ \t]+[a-zA-Z_][a-zA-Z0-9_]*[ \t]*\(/ {
-              gsub(/^[ \t]+/, "")
-              # Ensure proper spacing in function declaration
-              gsub(/[ \t]*\(/, " (")
-              gsub(/ \(/, "(")
-              print $0
-              in_function = 1
-              prev_line = $0
-              next
-            }
-            
-            # Handle variable declarations (simple heuristic)
-            /^[ \t]*(int|char|float|double|void|long|short|unsigned)[ \t]+/ {
-              gsub(/^[ \t]+/, "")
-              for(i=0; i<indent_level; i++) printf "\t"
-              # Normalize spacing in declarations
-              gsub(/[ \t]+/, " ")
-              print $0
-              prev_line = $0
-              next
-            }
-            
-            # FIXED: Handle control structures (if, while, for, etc.) - PROPER REGEX
-            /^[ \t]*(if|while|for|else)[ \t]*\(/ {
-              gsub(/^[ \t]+/, "")
-              for(i=0; i<indent_level; i++) printf "\t"
-              # FIXED: Ensure proper spacing around parentheses - using word boundaries
-              gsub(/^[ \t]*(if|while|for|else)[ \t]*\(/, "\\1 (")
-              print $0
-              prev_line = $0
-              next
-            }
-            
-            # Handle regular code lines
-            {
-              gsub(/^[ \t]+/, "")
-              if (length($0) > 0) {
-                for(i=0; i<indent_level; i++) printf "\t"
-                # Fix spacing around operators - CAREFUL WITH REGEX
-                gsub(/[ \t]*=[ \t]*/, " = ")
-                gsub(/[ \t]*\+[ \t]*/, " + ")
-                gsub(/[ \t]*-[ \t]*/, " - ")
-                # FIXED: Protect asterisks in comments and pointers
-                if (!/\/\*/ && !/\*\//) {
-                  gsub(/[ \t]*\*[ \t]*/, " * ")
-                }
-                gsub(/[ \t]*\/[ \t]*/, " / ")
-                gsub(/[ \t]*<[ \t]*/, " < ")
-                gsub(/[ \t]*>[ \t]*/, " > ")
-                gsub(/[ \t]*<=[ \t]*/, " <= ")
-                gsub(/[ \t]*>=[ \t]*/, " >= ")
-                gsub(/[ \t]*==[ \t]*/, " == ")
-                gsub(/[ \t]*!=[ \t]*/, " != ")
-                
-                # Fix spacing around commas and semicolons
-                gsub(/,[ \t]*/, ", ")
-                gsub(/;[ \t]*/, ";")
-                
-                print $0
-              }
-              prev_line = $0
-            }
-            ')
-            
-            # Combine header and formatted code SAFELY
-            if [ -n "$header_lines" ]; then
-              echo "🔗 Reassembling: Header + Formatted Code"
-              {
-                echo "$header_lines"
-                echo ""  # Ensure there's a blank line after header
-                echo "$formatted_code"
-              } > "$temp_file"
-            else
-              echo "💾 Saving formatted code (no header)"
-              echo "$formatted_code" > "$temp_file"
-            fi
-            
-            # Replace original file with formatted version
-            mv "$temp_file" "$file"
-          }
-
-          # Process all C files
           while IFS= read -r -d '' file; do
-            echo "🔧 Processing: $file"
-            
             filename=$(basename "$file")
             filename_len=${#filename}
             diff_len=$(( filename_len - ${#ref_filename} ))
@@ -263,7 +75,6 @@ jobs:
             new_ruler="/*   $filename"
             new_line=$(printf "%s%*s%s" "$new_ruler" "$spaces_after" "" "$suffix")
 
-            # STEP 1: Handle Header Logic (Original Logic)
             if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
               # File already has header, check if we need to update it
               
@@ -387,51 +198,454 @@ jobs:
               printf "\n" >> "$temp_file"
               cat "$file" >> "$temp_file"
               mv "$temp_file" "$file"
-              
-              echo "✅ Header added to $filename"
             fi
-            
-            # STEP 2: Apply Code Formatting (New Logic)
-            echo "🎨 Formatting code in $filename..."
-            
-            # CRITICAL: Use header-aware formatting only
-            # Never use c-formatter-42 directly on files with headers as it might corrupt them
-            if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
-              echo "🛡️  Header detected - using custom header-safe formatter only"
-              format_42_code "$file"
-              echo "✅ Header-safe formatting applied to $filename"
-            else
-              # No header present, can try professional formatter
-              if command -v c_formatter_42 >/dev/null 2>&1; then
-                echo "Using c-formatter-42 for $filename (no header present)"
-                temp_formatted=$(mktemp)
-                c_formatter_42 < "$file" > "$temp_formatted" 2>/dev/null || {
-                  echo "⚠️  c-formatter-42 failed, using custom formatter"
-                  format_42_code "$file"
-                }
-                if [ -s "$temp_formatted" ]; then
-                  mv "$temp_formatted" "$file"
-                  echo "✅ Professional formatting applied to $filename"
-                else
-                  rm -f "$temp_formatted"
-                  format_42_code "$file"
-                  echo "✅ Custom formatting applied to $filename"
-                fi
-              else
-                # Use custom formatter
-                format_42_code "$file"
-                echo "✅ Custom formatting applied to $filename"
-              fi
-            fi
-            
-            echo "🎯 Completed processing $filename"
-            echo "---"
-            
           done < <(find . -type f \( -name "*.c" -o -name "*.h" \) -print0)
 
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "CI: Add 42 headers and format code"
+          commit_message: "ci: Add 42 header"
           commit_user_name: "${{ github.actor }}"
           commit_user_email: "${{ github.actor }}@users.noreply.github.com"
+
+
+
+#           ##########################################################
+# name: Update 42 Headers & Format Code
+
+# on:
+#   push:
+#     branches: [main]
+
+# jobs:
+#   update-headers-and-format:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write
+
+#     steps:
+#       - uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0  # This ensures we get full git history
+
+#       - name: Setup Git
+#         run: |
+#           git config --global user.name "${{ github.actor }}"
+#           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+
+#       - name: Install Python and c-formatter-42
+#         run: |
+#           sudo apt-get update
+#           sudo apt-get install -y python3 python3-pip
+#           pip3 install c-formatter-42
+
+#       - name: Process Headers and Format Code
+#         run: |
+#           set -eo pipefail
+#           author="SoufianoDev"
+#           header_email="contact.devsoufiano@gmail.com"
+#           updated=$(date +"%Y/%m/%d %H:%M:%S")
+#           target_length=85
+#           ref_filename="ft_putchar.c"
+#           ruler="/*   $ref_filename"
+#           template_line="$ruler                                               :+:      :+:    :+:  */"
+#           spaces_str=${template_line#"$ruler"}
+#           spaces_str=${spaces_str%%:+:*}
+#           reserved_space=${#spaces_str}
+#           suffix=":+:      :+:    :+:  */"
+
+#           # Function to get the most accurate creation date
+#           get_creation_date() {
+#             local file="$1"
+#             local git_first_commit=""
+#             local filesystem_creation=""
+            
+#             # Try to get first commit date from git history
+#             git_first_commit=$(git log --reverse --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" 2>/dev/null | head -n1 || echo "")
+            
+#             # Get filesystem creation time (as fallback, but less reliable)
+#             if command -v stat >/dev/null 2>&1; then
+#               # Linux/Unix systems
+#               filesystem_creation=$(stat -c "%W" "$file" 2>/dev/null || echo "")
+#               if [ "$filesystem_creation" != "" ] && [ "$filesystem_creation" != "0" ]; then
+#                 filesystem_creation=$(date -d "@$filesystem_creation" +"%Y/%m/%d %H:%M:%S" 2>/dev/null || echo "")
+#               else
+#                 filesystem_creation=""
+#               fi
+#             fi
+            
+#             # Prefer git history over filesystem metadata
+#             if [ -n "$git_first_commit" ]; then
+#               echo "$git_first_commit"
+#             elif [ -n "$filesystem_creation" ]; then
+#               echo "$filesystem_creation"
+#             else
+#               # Ultimate fallback to current date
+#               echo "$(date +"%Y/%m/%d %H:%M:%S")"
+#             fi
+#           }
+
+#           # Custom 42 Code Formatter Function (FIXED VERSION)
+#           format_42_code() {
+#             local file="$1"
+#             local temp_file=$(mktemp)
+#             local header_lines=""
+#             local code_content=""
+            
+#             # CRITICAL: Always preserve headers - detect header end more accurately
+#             if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
+#               # Find the exact end of header (look for the closing comment line)
+#               local header_end_line=$(grep -n "/\* \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\* \*/" "$file" | tail -n 1 | cut -d: -f1)
+              
+#               if [ -n "$header_end_line" ] && [ "$header_end_line" -gt 0 ]; then
+#                 # Extract header (include the empty line after header if exists)
+#                 local total_header_lines=$((header_end_line + 1))
+#                 if sed -n "${total_header_lines}p" "$file" | grep -q "^$"; then
+#                   total_header_lines=$((total_header_lines + 1))
+#                 fi
+                
+#                 header_lines=$(head -n "$total_header_lines" "$file")
+#                 code_content=$(tail -n +$((total_header_lines + 1)) "$file")
+#               else
+#                 # Fallback: assume standard 12 lines for header
+#                 header_lines=$(head -n 12 "$file")
+#                 code_content=$(tail -n +13 "$file")
+#               fi
+              
+#               echo "🛡️  Header protected - formatting code only (after line $total_header_lines)"
+#             else
+#               # No header found, format entire file
+#               echo "📝 No header found - formatting entire file"
+#               header_lines=""
+#               code_content=$(cat "$file")
+#             fi
+            
+#             # Apply basic 42 formatting rules - FIXED VERSION
+#             formatted_code=$(echo "$code_content" | awk '
+#             BEGIN {
+#               indent_level = 0
+#               in_function = 0
+#               prev_line = ""
+#               brace_next_line = 0
+#             }
+            
+#             # Remove trailing spaces
+#             { gsub(/[ \t]+$/, "") }
+            
+#             # Skip empty lines processing
+#             /^[ \t]*$/ { 
+#               if (NR > 1 && prev_line != "") print ""
+#               prev_line = $0
+#               next 
+#             }
+            
+#             # Handle opening braces
+#             /{/ {
+#               if (match($0, /^[ \t]*{[ \t]*$/)) {
+#                 # Standalone opening brace
+#                 for(i=0; i<indent_level; i++) printf "\t"
+#                 print "{"
+#                 indent_level++
+#               } else if (match($0, /{.*}$/)) {
+#                 # Single line block
+#                 for(i=0; i<indent_level; i++) printf "\t"
+#                 print $0
+#               } else {
+#                 # Line with opening brace and content
+#                 gsub(/{/, "\n{")
+#                 gsub(/^[ \t]+/, "")
+#                 for(i=0; i<indent_level; i++) printf "\t"
+#                 print $0
+#                 indent_level++
+#               }
+#               prev_line = $0
+#               next
+#             }
+            
+#             # Handle closing braces
+#             /}/ {
+#               if (match($0, /^[ \t]*}[ \t]*$/)) {
+#                 # Standalone closing brace
+#                 indent_level--
+#                 if (indent_level < 0) indent_level = 0
+#                 for(i=0; i<indent_level; i++) printf "\t"
+#                 print "}"
+#               } else {
+#                 # Mixed line with closing brace
+#                 indent_level--
+#                 if (indent_level < 0) indent_level = 0
+#                 for(i=0; i<indent_level; i++) printf "\t"
+#                 gsub(/^[ \t]+/, "")
+#                 print $0
+#               }
+#               prev_line = $0
+#               next
+#             }
+            
+#             # Handle function declarations
+#             /^[a-zA-Z_][a-zA-Z0-9_]*[ \t]+[a-zA-Z_][a-zA-Z0-9_]*[ \t]*\(/ {
+#               gsub(/^[ \t]+/, "")
+#               # Ensure proper spacing in function declaration
+#               gsub(/[ \t]*\(/, " (")
+#               gsub(/ \(/, "(")
+#               print $0
+#               in_function = 1
+#               prev_line = $0
+#               next
+#             }
+            
+#             # Handle variable declarations (simple heuristic)
+#             /^[ \t]*(int|char|float|double|void|long|short|unsigned)[ \t]+/ {
+#               gsub(/^[ \t]+/, "")
+#               for(i=0; i<indent_level; i++) printf "\t"
+#               # Normalize spacing in declarations
+#               gsub(/[ \t]+/, " ")
+#               print $0
+#               prev_line = $0
+#               next
+#             }
+            
+#             # FIXED: Handle control structures (if, while, for, etc.) - PROPER REGEX
+#             /^[ \t]*(if|while|for|else)[ \t]*\(/ {
+#               gsub(/^[ \t]+/, "")
+#               for(i=0; i<indent_level; i++) printf "\t"
+#               # FIXED: Ensure proper spacing around parentheses - using word boundaries
+#               gsub(/^[ \t]*(if|while|for|else)[ \t]*\(/, "\\1 (")
+#               print $0
+#               prev_line = $0
+#               next
+#             }
+            
+#             # Handle regular code lines
+#             {
+#               gsub(/^[ \t]+/, "")
+#               if (length($0) > 0) {
+#                 for(i=0; i<indent_level; i++) printf "\t"
+#                 # Fix spacing around operators - CAREFUL WITH REGEX
+#                 gsub(/[ \t]*=[ \t]*/, " = ")
+#                 gsub(/[ \t]*\+[ \t]*/, " + ")
+#                 gsub(/[ \t]*-[ \t]*/, " - ")
+#                 # FIXED: Protect asterisks in comments and pointers
+#                 if (!/\/\*/ && !/\*\//) {
+#                   gsub(/[ \t]*\*[ \t]*/, " * ")
+#                 }
+#                 gsub(/[ \t]*\/[ \t]*/, " / ")
+#                 gsub(/[ \t]*<[ \t]*/, " < ")
+#                 gsub(/[ \t]*>[ \t]*/, " > ")
+#                 gsub(/[ \t]*<=[ \t]*/, " <= ")
+#                 gsub(/[ \t]*>=[ \t]*/, " >= ")
+#                 gsub(/[ \t]*==[ \t]*/, " == ")
+#                 gsub(/[ \t]*!=[ \t]*/, " != ")
+                
+#                 # Fix spacing around commas and semicolons
+#                 gsub(/,[ \t]*/, ", ")
+#                 gsub(/;[ \t]*/, ";")
+                
+#                 print $0
+#               }
+#               prev_line = $0
+#             }
+#             ')
+            
+#             # Combine header and formatted code SAFELY
+#             if [ -n "$header_lines" ]; then
+#               echo "🔗 Reassembling: Header + Formatted Code"
+#               {
+#                 echo "$header_lines"
+#                 echo ""  # Ensure there's a blank line after header
+#                 echo "$formatted_code"
+#               } > "$temp_file"
+#             else
+#               echo "💾 Saving formatted code (no header)"
+#               echo "$formatted_code" > "$temp_file"
+#             fi
+            
+#             # Replace original file with formatted version
+#             mv "$temp_file" "$file"
+#           }
+
+#           # Process all C files
+#           while IFS= read -r -d '' file; do
+#             echo "🔧 Processing: $file"
+            
+#             filename=$(basename "$file")
+#             filename_len=${#filename}
+#             diff_len=$(( filename_len - ${#ref_filename} ))
+#             spaces_after=$(( reserved_space - diff_len ))
+#             (( spaces_after < 0 )) && spaces_after=0
+#             new_ruler="/*   $filename"
+#             new_line=$(printf "%s%*s%s" "$new_ruler" "$spaces_after" "" "$suffix")
+
+#             # STEP 1: Handle Header Logic (Original Logic)
+#             if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
+#               # File already has header, check if we need to update it
+              
+#               # Get the accurate creation date for comparison
+#               accurate_created=$(get_creation_date "$file")
+              
+#               # Extract current creation date from header
+#               current_created_line=$(grep -E "Created: [0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}" "$file" 2>/dev/null || echo "")
+#               current_created=""
+#               if [ -n "$current_created_line" ]; then
+#                 current_created=$(echo "$current_created_line" | sed -E 's/.*Created: ([0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}).*/\1/')
+#               fi
+              
+#               # Check if header format needs complete update (preventive measure)
+#               header_lines=$(head -n 11 "$file")
+#               current_header_width=$(echo "$header_lines" | head -n 1 | wc -c)
+#               current_header_width=$((current_header_width - 1))  # Remove newline character
+              
+#               needs_complete_update=false
+              
+#               # Check if header width doesn't match new format (85 chars)
+#               if [ "$current_header_width" -ne 85 ]; then
+#                 needs_complete_update=true
+#                 echo "🔄 Header format outdated for $filename (width: $current_header_width → 85)"
+#               fi
+              
+#               # Check if creation date needs correction
+#               if [ -n "$current_created" ] && [ "$current_created" != "$accurate_created" ]; then
+#                 needs_complete_update=true
+#                 echo "⚠️  Correcting creation date for $filename: $current_created → $accurate_created"
+#               fi
+              
+#               # Check if filename in header is correct
+#               current_line=$(grep -m1 -E "/\*   .*:\+:" "$file" 2>/dev/null || echo "")
+#               if [ -n "$current_line" ]; then
+#                 current_filename=$(echo "$current_line" | sed -E 's/\/\*   ([^ ]+).*/\1/')
+#                 if [ "$current_filename" != "$filename" ]; then
+#                   needs_complete_update=true
+#                   echo "📝 Correcting filename in header: $current_filename → $filename"
+#                 fi
+#               fi
+              
+#               if [ "$needs_complete_update" = true ]; then
+#                 # Complete header replacement - preserve creation date if accurate, otherwise use corrected one
+#                 final_created="$accurate_created"
+#                 if [ -n "$current_created" ] && [ "$current_created" = "$accurate_created" ]; then
+#                   final_created="$current_created"
+#                 fi
+                
+#                 # Create new header with correct format
+#                 new_header=$(printf "%s\n" \
+#                   "/* ********************************************************************************* */" \
+#                   "/*                                                                                   */" \
+#                   "/*                                                                :::      ::::::::  */" \
+#                   "/*   $filename                                               :+:      :+:    :+:  */" \
+#                   "/*                                                            +:+ +:+         +:+    */" \
+#                   "/*   By: $author <$header_email>         +#+  +:+       +#+      */" \
+#                   "/*                                                         +#+#+#+#+#+   +#+         */" \
+#                   "/*       Created: $final_created by $author            #+#    #+#           */" \
+#                   "/*       Updated: $updated by $author            ###   ########.fr    */" \
+#                   "/*                                                                                   */" \
+#                   "/* ********************************************************************************* */")
+                
+#                 # Apply dynamic spacing for filename line
+#                 new_header=$(echo "$new_header" | awk -v line="$new_line" '
+#                   /\/\*   .*:\+:/ {
+#                     print line
+#                     next
+#                   }
+#                   { print }
+#                 ')
+                
+#                 # Replace the old header (first 11 lines) with new header
+#                 temp_file=$(mktemp)
+#                 echo "$new_header" > "$temp_file"
+#                 printf "\n" >> "$temp_file"
+#                 tail -n +12 "$file" >> "$temp_file"
+#                 mv "$temp_file" "$file"
+                
+#                 echo "✅ Header completely updated for $filename"
+#               else
+#                 # Minor updates only if needed
+#                 if ! git diff --quiet HEAD -- "$file" 2>/dev/null; then
+#                   # File has changes, update Updated date only
+#                   sed -i -E \
+#                     -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
+#                     "$file"
+#                 fi
+#               fi
+#             else
+#               # File doesn't have header, create new one with accurate creation date
+#               created=$(get_creation_date "$file")
+              
+#               # Create the reference header using printf to avoid YAML parsing issues
+#               reference_header=$(printf "%s\n" \
+#                 "/* ********************************************************************************* */" \
+#                 "/*                                                                                   */" \
+#                 "/*                                                                :::      ::::::::  */" \
+#                 "/*   ft_putchar.c                                               :+:      :+:    :+:  */" \
+#                 "/*                                                            +:+ +:+         +:+    */" \
+#                 "/*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */" \
+#                 "/*                                                         +#+#+#+#+#+   +#+         */" \
+#                 "/*       Created: 2025/06/17 02:01:35 by SoufianoDev            #+#    #+#           */" \
+#                 "/*       Updated: 2025/06/17 01:01:51 by SoufianoDev            ###   ########.fr    */" \
+#                 "/*                                                                                   */" \
+#                 "/* ********************************************************************************* */")
+              
+#               new_header=$(echo "$reference_header" | \
+#                 sed -e "s|ft_putchar.c|${filename}|" \
+#                     -e "s|2025/06/17 02:01:35|${created}|" \
+#                     -e "s|2025/06/17 01:01:51|${updated}|")
+#               new_header=$(echo "$new_header" | awk -v line="$new_line" '
+#                 /\/\*   .*:\+:/ {
+#                   print line
+#                   next
+#                 }
+#                 { print }
+#               ')
+#               temp_file=$(mktemp)
+#               echo "$new_header" > "$temp_file"
+#               printf "\n" >> "$temp_file"
+#               cat "$file" >> "$temp_file"
+#               mv "$temp_file" "$file"
+              
+#               echo "✅ Header added to $filename"
+#             fi
+            
+#             # STEP 2: Apply Code Formatting (New Logic)
+#             echo "🎨 Formatting code in $filename..."
+            
+#             # CRITICAL: Use header-aware formatting only
+#             # Never use c-formatter-42 directly on files with headers as it might corrupt them
+#             if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
+#               echo "🛡️  Header detected - using custom header-safe formatter only"
+#               format_42_code "$file"
+#               echo "✅ Header-safe formatting applied to $filename"
+#             else
+#               # No header present, can try professional formatter
+#               if command -v c_formatter_42 >/dev/null 2>&1; then
+#                 echo "Using c-formatter-42 for $filename (no header present)"
+#                 temp_formatted=$(mktemp)
+#                 c_formatter_42 < "$file" > "$temp_formatted" 2>/dev/null || {
+#                   echo "⚠️  c-formatter-42 failed, using custom formatter"
+#                   format_42_code "$file"
+#                 }
+#                 if [ -s "$temp_formatted" ]; then
+#                   mv "$temp_formatted" "$file"
+#                   echo "✅ Professional formatting applied to $filename"
+#                 else
+#                   rm -f "$temp_formatted"
+#                   format_42_code "$file"
+#                   echo "✅ Custom formatting applied to $filename"
+#                 fi
+#               else
+#                 # Use custom formatter
+#                 format_42_code "$file"
+#                 echo "✅ Custom formatting applied to $filename"
+#               fi
+#             fi
+            
+#             echo "🎯 Completed processing $filename"
+#             echo "---"
+            
+#           done < <(find . -type f \( -name "*.c" -o -name "*.h" \) -print0)
+
+#       - name: Commit Changes
+#         uses: stefanzweifel/git-auto-commit-action@v6
+#         with:
+#           commit_message: "CI: Add 42 headers and format code"
+#           commit_user_name: "${{ github.actor }}"
+#           commit_user_email: "${{ github.actor }}@users.noreply.github.com"
+         
