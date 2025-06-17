@@ -6,12 +6,16 @@
 /*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
 /*                                                         +#+#+#+#+#+   +#+         */
 /*       Created: 2025/06/16 18:11:46 by SoufianoDev            #+#    #+#           */
+<<<<<<< HEAD
 /*       Updated: 2025/06/17 22:38:40 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
 
 /*       Updated: 2025/06/17 21:50:30 by SoufianoDev            ###   ########.fr    */
 >>>>>>> 6e03778 (fix)
+=======
+/*       Updated: 2025/06/17 22:31:19 by SoufianoDev            ###   ########.fr    */
+>>>>>>> fdc8d7c (fix)
 /*                                                                                   */
 /* ********************************************************************************* */
 
@@ -25,15 +29,11 @@ void ft_putchar(char c)
 void ft_print_comb2(void)
 {
 	int i = 0;
-<<<<<<< HEAD
-	\1 (condition)
+	while(condition)
 	{
 		 / * code * / 
 	}
 	(i < = 98)
-=======
-	while(i < = 98)
->>>>>>> 6e03778 (fix)
 	{
 		int j = i + 1;
 		while (j < = 99)
