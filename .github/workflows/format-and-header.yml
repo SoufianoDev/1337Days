@@ -1,0 +1,209 @@
+name: Update 42 Headers
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  update-headers:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # This ensures we get full git history
+
+      - name: Setup Git
+        run: |
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Process Headers
+        run: |
+          set -eo pipefail
+          author="SoufianoDev"
+          header_email="contact.devsoufiano@gmail.com"
+          updated=$(date +"%Y/%m/%d %H:%M:%S")
+          target_length=85
+          ref_filename="ft_putchar.c"
+          ruler="/*   $ref_filename"
+          template_line="$ruler                                               :+:      :+:    :+:  */"
+          spaces_str=${template_line#"$ruler"}
+          spaces_str=${spaces_str%%:+:*}
+          reserved_space=${#spaces_str}
+          suffix=":+:      :+:    :+:  */"
+
+          # Function to get the most accurate creation date
+          get_creation_date() {
+            local file="$1"
+            local git_first_commit=""
+            local filesystem_creation=""
+            
+            # Try to get first commit date from git history
+            git_first_commit=$(git log --reverse --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" 2>/dev/null | head -n1 || echo "")
+            
+            # Get filesystem creation time (as fallback, but less reliable)
+            if command -v stat >/dev/null 2>&1; then
+              # Linux/Unix systems
+              filesystem_creation=$(stat -c "%W" "$file" 2>/dev/null || echo "")
+              if [ "$filesystem_creation" != "" ] && [ "$filesystem_creation" != "0" ]; then
+                filesystem_creation=$(date -d "@$filesystem_creation" +"%Y/%m/%d %H:%M:%S" 2>/dev/null || echo "")
+              else
+                filesystem_creation=""
+              fi
+            fi
+            
+            # Prefer git history over filesystem metadata
+            if [ -n "$git_first_commit" ]; then
+              echo "$git_first_commit"
+            elif [ -n "$filesystem_creation" ]; then
+              echo "$filesystem_creation"
+            else
+              # Ultimate fallback to current date
+              echo "$(date +"%Y/%m/%d %H:%M:%S")"
+            fi
+          }
+
+          while IFS= read -r -d '' file; do
+            filename=$(basename "$file")
+            filename_len=${#filename}
+            diff_len=$(( filename_len - ${#ref_filename} ))
+            spaces_after=$(( reserved_space - diff_len ))
+            (( spaces_after < 0 )) && spaces_after=0
+            new_ruler="/*   $filename"
+            new_line=$(printf "%s%*s%s" "$new_ruler" "$spaces_after" "" "$suffix")
+
+            if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
+              # File already has header, check if we need to update it
+              
+              # Get the accurate creation date for comparison
+              accurate_created=$(get_creation_date "$file")
+              
+              # Extract current creation date from header
+              current_created_line=$(grep -E "Created: [0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}" "$file" 2>/dev/null || echo "")
+              current_created=""
+              if [ -n "$current_created_line" ]; then
+                current_created=$(echo "$current_created_line" | sed -E 's/.*Created: ([0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}).*/\1/')
+              fi
+              
+              # Check if header format needs complete update (preventive measure)
+              header_lines=$(head -n 11 "$file")
+              current_header_width=$(echo "$header_lines" | head -n 1 | wc -c)
+              current_header_width=$((current_header_width - 1))  # Remove newline character
+              
+              needs_complete_update=false
+              
+              # Check if header width doesn't match new format (85 chars)
+              if [ "$current_header_width" -ne 85 ]; then
+                needs_complete_update=true
+                echo "🔄 Header format outdated for $filename (width: $current_header_width → 85)"
+              fi
+              
+              # Check if creation date needs correction
+              if [ -n "$current_created" ] && [ "$current_created" != "$accurate_created" ]; then
+                needs_complete_update=true
+                echo "⚠️  Correcting creation date for $filename: $current_created → $accurate_created"
+              fi
+              
+              # Check if filename in header is correct
+              current_line=$(grep -m1 -E "/\*   .*:\+:" "$file" 2>/dev/null || echo "")
+              if [ -n "$current_line" ]; then
+                current_filename=$(echo "$current_line" | sed -E 's/\/\*   ([^ ]+).*/\1/')
+                if [ "$current_filename" != "$filename" ]; then
+                  needs_complete_update=true
+                  echo "📝 Correcting filename in header: $current_filename → $filename"
+                fi
+              fi
+              
+              if [ "$needs_complete_update" = true ]; then
+                # Complete header replacement - preserve creation date if accurate, otherwise use corrected one
+                final_created="$accurate_created"
+                if [ -n "$current_created" ] && [ "$current_created" = "$accurate_created" ]; then
+                  final_created="$current_created"
+                fi
+                
+                # Create new header with correct format
+                new_header=$(printf "%s\n" \
+                  "/* ********************************************************************************* */" \
+                  "/*                                                                                   */" \
+                  "/*                                                                :::      ::::::::  */" \
+                  "/*   $filename                                               :+:      :+:    :+:  */" \
+                  "/*                                                            +:+ +:+         +:+    */" \
+                  "/*   By: $author <$header_email>         +#+  +:+       +#+      */" \
+                  "/*                                                         +#+#+#+#+#+   +#+         */" \
+                  "/*       Created: $final_created by $author            #+#    #+#           */" \
+                  "/*       Updated: $updated by $author            ###   ########.fr    */" \
+                  "/*                                                                                   */" \
+                  "/* ********************************************************************************* */")
+                
+                # Apply dynamic spacing for filename line
+                new_header=$(echo "$new_header" | awk -v line="$new_line" '
+                  /\/\*   .*:\+:/ {
+                    print line
+                    next
+                  }
+                  { print }
+                ')
+                
+                # Replace the old header (first 11 lines) with new header
+                temp_file=$(mktemp)
+                echo "$new_header" > "$temp_file"
+                printf "\n" >> "$temp_file"
+                tail -n +12 "$file" >> "$temp_file"
+                mv "$temp_file" "$file"
+                
+                echo "✅ Header completely updated for $filename"
+              else
+                # Minor updates only if needed
+                if ! git diff --quiet HEAD -- "$file" 2>/dev/null; then
+                  # File has changes, update Updated date only
+                  sed -i -E \
+                    -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
+                    "$file"
+                fi
+              fi
+            else
+              # File doesn't have header, create new one with accurate creation date
+              created=$(get_creation_date "$file")
+              
+              # Create the reference header using printf to avoid YAML parsing issues
+              reference_header=$(printf "%s\n" \
+                "/* ********************************************************************************* */" \
+                "/*                                                                                   */" \
+                "/*                                                                :::      ::::::::  */" \
+                "/*   ft_putchar.c                                               :+:      :+:    :+:  */" \
+                "/*                                                            +:+ +:+         +:+    */" \
+                "/*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */" \
+                "/*                                                         +#+#+#+#+#+   +#+         */" \
+                "/*       Created: 2025/06/17 02:01:35 by SoufianoDev            #+#    #+#           */" \
+                "/*       Updated: 2025/06/17 01:01:51 by SoufianoDev            ###   ########.fr    */" \
+                "/*                                                                                   */" \
+                "/* ********************************************************************************* */")
+              
+              new_header=$(echo "$reference_header" | \
+                sed -e "s|ft_putchar.c|${filename}|" \
+                    -e "s|2025/06/17 02:01:35|${created}|" \
+                    -e "s|2025/06/17 01:01:51|${updated}|")
+              new_header=$(echo "$new_header" | awk -v line="$new_line" '
+                /\/\*   .*:\+:/ {
+                  print line
+                  next
+                }
+                { print }
+              ')
+              temp_file=$(mktemp)
+              echo "$new_header" > "$temp_file"
+              printf "\n" >> "$temp_file"
+              cat "$file" >> "$temp_file"
+              mv "$temp_file" "$file"
+            fi
+          done < <(find . -type f \( -name "*.c" -o -name "*.h" \) -print0)
+
+      - name: Commit Changes
+        uses: stefanzweifel/git-auto-commit-action@v6
+        with:
+          commit_message: "ci: Add 42 header"
+          commit_user_name: "${{ github.actor }}"
+          commit_user_email: "${{ github.actor }}@users.noreply.github.com"
