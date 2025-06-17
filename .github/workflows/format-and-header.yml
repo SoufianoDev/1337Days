@@ -72,7 +72,7 @@ jobs:
             fi
           }
 
-          # Custom 42 Code Formatter Function (based on observed patterns)
+          # Custom 42 Code Formatter Function (FIXED VERSION)
           format_42_code() {
             local file="$1"
             local temp_file=$(mktemp)
@@ -107,7 +107,7 @@ jobs:
               code_content=$(cat "$file")
             fi
             
-            # Apply basic 42 formatting rules
+            # Apply basic 42 formatting rules - FIXED VERSION
             formatted_code=$(echo "$code_content" | awk '
             BEGIN {
               indent_level = 0
@@ -173,8 +173,8 @@ jobs:
             /^[a-zA-Z_][a-zA-Z0-9_]*[ \t]+[a-zA-Z_][a-zA-Z0-9_]*[ \t]*\(/ {
               gsub(/^[ \t]+/, "")
               # Ensure proper spacing in function declaration
-              gsub(/[ \t]*\(/, "\t(")
-              gsub(/\t\(/, "(")
+              gsub(/[ \t]*\(/, " (")
+              gsub(/ \(/, "(")
               print $0
               in_function = 1
               prev_line = $0
@@ -186,20 +186,18 @@ jobs:
               gsub(/^[ \t]+/, "")
               for(i=0; i<indent_level; i++) printf "\t"
               # Normalize spacing in declarations
-              gsub(/[ \t]+/, "\t", $0)
-              gsub(/\t/, " ")
-              gsub(/  +/, " ")
+              gsub(/[ \t]+/, " ")
               print $0
               prev_line = $0
               next
             }
             
-            # Handle control structures (if, while, for, etc.)
-            /(if|while|for|else)[ \t]*\(/ {
+            # FIXED: Handle control structures (if, while, for, etc.) - PROPER REGEX
+            /^[ \t]*(if|while|for|else)[ \t]*\(/ {
               gsub(/^[ \t]+/, "")
               for(i=0; i<indent_level; i++) printf "\t"
-              # Ensure proper spacing around parentheses
-              gsub(/(if|while|for|else)[ \t]*\(/, "\\1 (")
+              # FIXED: Ensure proper spacing around parentheses - using word boundaries
+              gsub(/^[ \t]*(if|while|for|else)[ \t]*\(/, "\\1 (")
               print $0
               prev_line = $0
               next
@@ -210,11 +208,14 @@ jobs:
               gsub(/^[ \t]+/, "")
               if (length($0) > 0) {
                 for(i=0; i<indent_level; i++) printf "\t"
-                # Fix spacing around operators
+                # Fix spacing around operators - CAREFUL WITH REGEX
                 gsub(/[ \t]*=[ \t]*/, " = ")
                 gsub(/[ \t]*\+[ \t]*/, " + ")
                 gsub(/[ \t]*-[ \t]*/, " - ")
-                gsub(/[ \t]*\*[ \t]*/, " * ")
+                # FIXED: Protect asterisks in comments and pointers
+                if (!/\/\*/ && !/\*\//) {
+                  gsub(/[ \t]*\*[ \t]*/, " * ")
+                }
                 gsub(/[ \t]*\/[ \t]*/, " / ")
                 gsub(/[ \t]*<[ \t]*/, " < ")
                 gsub(/[ \t]*>[ \t]*/, " > ")
@@ -223,7 +224,7 @@ jobs:
                 gsub(/[ \t]*==[ \t]*/, " == ")
                 gsub(/[ \t]*!=[ \t]*/, " != ")
                 
-                # Fix spacing around commas
+                # Fix spacing around commas and semicolons
                 gsub(/,[ \t]*/, ", ")
                 gsub(/;[ \t]*/, ";")
                 
@@ -431,6 +432,6 @@ jobs:
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "ci: Update 42 headers and format code"
+          commit_message: "CI: Add 42 headers and format code"
           commit_user_name: "${{ github.actor }}"
           commit_user_email: "${{ github.actor }}@users.noreply.github.com"
