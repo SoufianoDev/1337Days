@@ -20,10 +20,3 @@ void ft_putnbr(int nbr)
 
     ft_putchar((nr % 10) + '0');
 }
-int main(){
-
-
-    ft_putnbr(-1337);
-
-    return 0;
-}
