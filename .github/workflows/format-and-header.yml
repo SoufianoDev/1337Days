@@ -11,11 +11,9 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2  # Need previous commit to compare changes
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Git
         run: |
@@ -56,9 +54,9 @@ jobs:
           suffix=":+:      :+:    :+:  */"
 
           # Arrays to track different types of changes
-          updated_files=""
-          new_header_files=""
-          fixed_corrupted_files=""
+          updated_files=()
+          new_header_files=()
+          fixed_corrupted_files=()
 
           # Function to get the most accurate creation date
           get_creation_date() {
@@ -160,24 +158,12 @@ jobs:
                   original_created=$(echo "$existing_created_line" | sed -E 's/.*Created: ([0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}).*/\1/')
                 fi
                 
-                # Compare with Git creation date and use the accurate one if they don't match
-                git_created=$(get_creation_date "$file")
-                final_created="$original_created"
-                
-                if [ -n "$original_created" ] && [ "$original_created" != "$git_created" ]; then
-                  echo "⚠️  Creation date mismatch for $filename:"
-                  echo "    Header date: $original_created"
-                  echo "    Git date: $git_created"
-                  echo "    Using Git date as the accurate one"
-                  final_created="$git_created"
-                elif [ -z "$original_created" ]; then
-                  echo "📅 No valid creation date found in header, using Git date: $git_created"
-                  final_created="$git_created"
-                else
-                  echo "✅ Creation date matches Git history: $original_created"
+                # If we couldn't extract the original date, use the accurate creation date as fallback
+                if [ -z "$original_created" ]; then
+                  original_created="$accurate_created"
                 fi
                 
-                # Create new header with correct format and accurate creation date
+                # Create new header with correct format, preserving original creation date
                 new_header=$(printf "%s\n" \
                   "/* ********************************************************************************* */" \
                   "/*                                                                                   */" \
@@ -186,7 +172,7 @@ jobs:
                   "/*                                                            +:+ +:+         +:+    */" \
                   "/*   By: $author <$header_email>         +#+  +:+       +#+      */" \
                   "/*                                                         +#+#+#+#+#+   +#+         */" \
-                  "/*       Created: $final_created by $author            #+#    #+#           */" \
+                  "/*       Created: $original_created by $author            #+#    #+#           */" \
                   "/*       Updated: $updated by $author            ###   ########.fr    */" \
                   "/*                                                                                   */" \
                   "/* ********************************************************************************* */")
@@ -207,45 +193,15 @@ jobs:
                 tail -n +12 "$file" >> "$temp_file"
                 mv "$temp_file" "$file"
                 
-                echo "✅ Corrupted header removed and replaced for $filename (creation date: $final_created)"
-                fixed_corrupted_files="$fixed_corrupted_files$filename;"
+                echo "✅ Corrupted header removed and replaced for $filename (preserved original creation date: $original_created)"
+                fixed_corrupted_files+=("$filename")
               else
-                # Header is valid - check if creation date matches Git history
-                git_created=$(get_creation_date "$file")
-                current_created_line=$(grep -E "Created: [0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}" "$file" 2>/dev/null | head -n1 || echo "")
-                
-                if [ -n "$current_created_line" ]; then
-                  current_created=$(echo "$current_created_line" | sed -E 's/.*Created: ([0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}).*/\1/')
-                  
-                  if [ "$current_created" != "$git_created" ]; then
-                    echo "⚠️  Creation date correction needed for $filename:"
-                    echo "    Header date: $current_created"
-                    echo "    Git date: $git_created"
-                    echo "    Correcting to match Git history"
-                    
-                    # Update both the creation date and the updated timestamp
-                    sed -i -E \
-                      -e "s|(Created: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$git_created by $author|" \
-                      -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
-                      "$file"
-                    echo "✅ Creation date corrected and timestamp updated for $filename"
-                    updated_files="$updated_files$filename;"
-                  else
-                    # Creation date is correct, just update the timestamp
-                    sed -i -E \
-                      -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
-                      "$file"
-                    echo "⏰ Valid header with correct creation date - Updated timestamp only for $filename"
-                    updated_files="$updated_files$filename;"
-                  fi
-                else
-                  # No valid creation date found, just update timestamp
-                  sed -i -E \
-                    -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
-                    "$file"
-                  echo "⏰ Valid header - Updated timestamp only for $filename"
-                  updated_files="$updated_files$filename;"
-                fi
+                # Header is valid - just update the timestamp
+                sed -i -E \
+                  -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
+                  "$file"
+                echo "⏰ Valid header - Updated timestamp only for $filename"
+                updated_files+=("$filename")
               fi
             else
               # File doesn't have header, create new one with accurate creation date
@@ -282,42 +238,34 @@ jobs:
               cat "$file" >> "$temp_file"
               mv "$temp_file" "$file"
               echo "✅ New header added for $filename"
-              new_header_files="$new_header_files$filename;"
+              new_header_files+=("$filename")
             fi
           done
 
-          # Set environment variables for the next step
-          echo "UPDATED_FILES=$updated_files" >> $GITHUB_ENV
-          echo "NEW_HEADER_FILES=$new_header_files" >> $GITHUB_ENV
-          echo "FIXED_CORRUPTED_FILES=$fixed_corrupted_files" >> $GITHUB_ENV
+          # Save file lists to outputs for commit step
+          printf "%s\n" "${updated_files[@]}" > updated_files.txt
+          printf "%s\n" "${new_header_files[@]}" > new_header_files.txt  
+          printf "%s\n" "${fixed_corrupted_files[@]}" > fixed_corrupted_files.txt
 
-      - name: Commit and Push Changes
+      - name: Commit Updated Headers
         if: steps.changed-files.outputs.changed_files != ''
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Read the file lists from environment variables
-          updated_files="$UPDATED_FILES"
-          new_header_files="$NEW_HEADER_FILES"  
-          fixed_corrupted_files="$FIXED_CORRUPTED_FILES"
+          # Read the file lists
+          updated_files=$(cat updated_files.txt 2>/dev/null || echo "")
+          new_header_files=$(cat new_header_files.txt 2>/dev/null || echo "")  
+          fixed_corrupted_files=$(cat fixed_corrupted_files.txt 2>/dev/null || echo "")
 
-          # Function to create commit message based on file list
+          # Function to create commit message based on file count
           create_commit_message() {
             local action="$1"
             local files="$2"
+            local count=$(echo "$files" | grep -c . 2>/dev/null || echo 0)
             
-            # Remove trailing semicolon and split by semicolon
-            files=$(echo "$files" | sed 's/;$//')
-            
-            if [ -z "$files" ]; then
+            if [ "$count" -eq 0 ]; then
               return
-            fi
-            
-            # Count files by splitting on semicolon
-            local count=$(echo "$files" | tr ';' '\n' | grep -c . 2>/dev/null || echo 0)
-            
-            if [ "$count" -eq 1 ]; then
-              echo "ci: $action $files"
+            elif [ "$count" -eq 1 ]; then
+              local filename=$(echo "$files" | head -n1)
+              echo "ci: $action $filename"
             else
               echo "ci: $action headers for $count files"
             fi
@@ -330,38 +278,28 @@ jobs:
           fi
 
           # Determine commit message based on what was done
-          commit_messages=""
+          commit_messages=()
           
-          if [ -n "$updated_files" ]; then
+          if [ -n "$updated_files" ] && [ "$(echo "$updated_files" | grep -c .)" -gt 0 ]; then
             msg=$(create_commit_message "Update" "$updated_files")
-            [ -n "$msg" ] && commit_messages="$commit_messages$msg; "
+            [ -n "$msg" ] && commit_messages+=("$msg")
           fi
           
-          if [ -n "$new_header_files" ]; then
+          if [ -n "$new_header_files" ] && [ "$(echo "$new_header_files" | grep -c .)" -gt 0 ]; then
             msg=$(create_commit_message "Add header to" "$new_header_files")
-            [ -n "$msg" ] && commit_messages="$commit_messages$msg; "
+            [ -n "$msg" ] && commit_messages+=("$msg")
           fi
           
-          if [ -n "$fixed_corrupted_files" ]; then
+          if [ -n "$fixed_corrupted_files" ] && [ "$(echo "$fixed_corrupted_files" | grep -c .)" -gt 0 ]; then
             msg=$(create_commit_message "Fix corrupted header in" "$fixed_corrupted_files")
-            [ -n "$msg" ] && commit_messages="$commit_messages$msg; "
+            [ -n "$msg" ] && commit_messages+=("$msg")
           fi
 
           # Create final commit message
-          if [ -n "$commit_messages" ]; then
-            # Remove trailing semicolon and space
-            commit_messages=$(echo "$commit_messages" | sed 's/; $//')
-            
-            # Count number of message types
-            msg_count=$(echo "$commit_messages" | tr ';' '\n' | wc -l)
-            
-            if [ "$msg_count" -eq 1 ]; then
-              final_message="$commit_messages"
-            else
-              # Remove "ci: " prefix from each message for combination
-              clean_messages=$(echo "$commit_messages" | sed 's/ci: //g')
-              final_message="ci: Update 42 headers - $clean_messages"
-            fi
+          if [ ${#commit_messages[@]} -eq 1 ]; then
+            final_message="${commit_messages[0]}"
+          elif [ ${#commit_messages[@]} -gt 1 ]; then
+            final_message="ci: Update 42 headers - $(IFS='; '; echo "${commit_messages[*]#ci: }")"
           else
             final_message="ci: Update 42 headers"
           fi
@@ -372,3 +310,6 @@ jobs:
           git add .
           git commit -m "$final_message"
           git push
+
+          # Clean up temporary files
+          rm -f updated_files.txt new_header_files.txt fixed_corrupted_files.txt
