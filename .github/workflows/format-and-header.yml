@@ -53,10 +53,10 @@ jobs:
           reserved_space=${#spaces_str}
           suffix=":+:      :+:    :+:  */"
 
-          # Arrays to track different types of changes
-          updated_files=()
-          new_header_files=()
-          fixed_corrupted_files=()
+          # Counters for different types of changes
+          updated_count=0
+          new_header_count=0
+          fixed_corrupted_count=0
 
           # Function to get the most accurate creation date
           get_creation_date() {
@@ -194,14 +194,14 @@ jobs:
                 mv "$temp_file" "$file"
                 
                 echo "✅ Corrupted header removed and replaced for $filename (preserved original creation date: $original_created)"
-                fixed_corrupted_files+=("$filename")
+                ((fixed_corrupted_count++))
               else
                 # Header is valid - just update the timestamp
                 sed -i -E \
                   -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
                   "$file"
                 echo "⏰ Valid header - Updated timestamp only for $filename"
-                updated_files+=("$filename")
+                ((updated_count++))
               fi
             else
               # File doesn't have header, create new one with accurate creation date
@@ -238,78 +238,30 @@ jobs:
               cat "$file" >> "$temp_file"
               mv "$temp_file" "$file"
               echo "✅ New header added for $filename"
-              new_header_files+=("$filename")
+              ((new_header_count++))
             fi
           done
 
-          # Save file lists to outputs for commit step
-          printf "%s\n" "${updated_files[@]}" > updated_files.txt
-          printf "%s\n" "${new_header_files[@]}" > new_header_files.txt  
-          printf "%s\n" "${fixed_corrupted_files[@]}" > fixed_corrupted_files.txt
+          # Save counts to environment variables for next step
+          echo "UPDATED_COUNT=$updated_count" >> $GITHUB_ENV
+          echo "NEW_HEADER_COUNT=$new_header_count" >> $GITHUB_ENV
+          echo "FIXED_CORRUPTED_COUNT=$fixed_corrupted_count" >> $GITHUB_ENV
 
       - name: Commit Updated Headers
         if: steps.changed-files.outputs.changed_files != ''
         run: |
-          # Read the file lists
-          updated_files=$(cat updated_files.txt 2>/dev/null || echo "")
-          new_header_files=$(cat new_header_files.txt 2>/dev/null || echo "")  
-          fixed_corrupted_files=$(cat fixed_corrupted_files.txt 2>/dev/null || echo "")
-
-          # Function to create commit message based on file count
-          create_commit_message() {
-            local action="$1"
-            local files="$2"
-            local count=$(echo "$files" | grep -c . 2>/dev/null || echo 0)
-            
-            if [ "$count" -eq 0 ]; then
-              return
-            elif [ "$count" -eq 1 ]; then
-              local filename=$(echo "$files" | head -n1)
-              echo "ci: $action $filename"
-            else
-              echo "ci: $action headers for $count files"
-            fi
-          }
-
           # Check if there are any changes to commit
           if git diff --quiet; then
             echo "No changes to commit"
             exit 0
           fi
 
-          # Determine commit message based on what was done
-          commit_messages=()
+          # Create simple commit message
+          commit_message="ci: Add 42 header"
           
-          if [ -n "$updated_files" ] && [ "$(echo "$updated_files" | grep -c .)" -gt 0 ]; then
-            msg=$(create_commit_message "Update" "$updated_files")
-            [ -n "$msg" ] && commit_messages+=("$msg")
-          fi
-          
-          if [ -n "$new_header_files" ] && [ "$(echo "$new_header_files" | grep -c .)" -gt 0 ]; then
-            msg=$(create_commit_message "Add header to" "$new_header_files")
-            [ -n "$msg" ] && commit_messages+=("$msg")
-          fi
-          
-          if [ -n "$fixed_corrupted_files" ] && [ "$(echo "$fixed_corrupted_files" | grep -c .)" -gt 0 ]; then
-            msg=$(create_commit_message "Fix corrupted header in" "$fixed_corrupted_files")
-            [ -n "$msg" ] && commit_messages+=("$msg")
-          fi
-
-          # Create final commit message
-          if [ ${#commit_messages[@]} -eq 1 ]; then
-            final_message="${commit_messages[0]}"
-          elif [ ${#commit_messages[@]} -gt 1 ]; then
-            final_message="ci: Update 42 headers - $(IFS='; '; echo "${commit_messages[*]#ci: }")"
-          else
-            final_message="ci: Update 42 headers"
-          fi
-
-          echo "Commit message: $final_message"
+          echo "Commit message: $commit_message"
           
           # Add all changes and commit
           git add .
-          git commit -m "$final_message"
+          git commit -m "$commit_message"
           git push
-
-          # Clean up temporary files
-          rm -f updated_files.txt new_header_files.txt fixed_corrupted_files.txt
