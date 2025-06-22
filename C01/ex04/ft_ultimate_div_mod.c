@@ -5,7 +5,7 @@
 /*                                                            +:+ +:+         +:+    */
 /*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
 /*                                                         +#+#+#+#+#+   +#+         */
-/*       Created: 2025/06/22 02:21:58 by SoufianoDev            #+#    #+#           */
+/*       Created: 2025/06/21 23:30:58 by SoufianoDev            #+#    #+#           */
 /*       Updated: 2025/06/22 02:09:43 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
@@ -14,7 +14,7 @@
 
 
 void ft_ultimate_div_mod(int *a, int *b){
-    
+
     int temp = *a ;
     *a = *a / *b ;
     *b = temp % *b ;
