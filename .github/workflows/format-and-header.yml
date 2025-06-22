@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Need previous commit to compare changes
+          fetch-depth: 2
 
       - name: Setup Git
         run: |
@@ -23,7 +23,6 @@ jobs:
       - name: Get Changed and New Files
         id: changed-files
         run: |
-          # Get list of modified and added .c and .h files in this push
           CHANGED_FILES=$(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep -E '\.(c|h)$' || echo "")
           echo "changed_files<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
@@ -40,7 +39,8 @@ jobs:
         if: steps.changed-files.outputs.changed_files != ''
         id: process-headers
         run: |
-          set -eo pipefail
+          # Remove strict error handling to continue processing even if one file fails
+          set +e
           author="SoufianoDev"
           header_email="contact.devsoufiano@gmail.com"
           updated=$(date +"%Y/%m/%d %H:%M:%S")
@@ -53,23 +53,18 @@ jobs:
           reserved_space=${#spaces_str}
           suffix=":+:      :+:    :+:  */"
 
-          # Counters for different types of changes
           updated_count=0
           new_header_count=0
           fixed_corrupted_count=0
 
-          # Function to get the most accurate creation date
           get_creation_date() {
             local file="$1"
             local git_first_commit=""
             local filesystem_creation=""
             
-            # Try to get first commit date from git history
             git_first_commit=$(git log --reverse --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" 2>/dev/null | head -n1 || echo "")
             
-            # Get filesystem creation time (as fallback, but less reliable)
             if command -v stat >/dev/null 2>&1; then
-              # Linux/Unix systems
               filesystem_creation=$(stat -c "%W" "$file" 2>/dev/null || echo "")
               if [ "$filesystem_creation" != "" ] && [ "$filesystem_creation" != "0" ]; then
                 filesystem_creation=$(date -d "@$filesystem_creation" +"%Y/%m/%d %H:%M:%S" 2>/dev/null || echo "")
@@ -78,26 +73,19 @@ jobs:
               fi
             fi
             
-            # Prefer git history over filesystem metadata
             if [ -n "$git_first_commit" ]; then
               echo "$git_first_commit"
             elif [ -n "$filesystem_creation" ]; then
               echo "$filesystem_creation"
             else
-              # Ultimate fallback to current date
               echo "$(date +"%Y/%m/%d %H:%M:%S")"
             fi
           }
           
-          # Read changed files from the previous step
           changed_files="${{ steps.changed-files.outputs.changed_files }}"
           
-          # Process only changed files
-          echo "$changed_files" | while IFS= read -r file; do
-            # Skip empty lines
+          while IFS= read -r file; do
             [ -z "$file" ] && continue
-            
-            # Skip if file doesn't exist (might be deleted)
             [ ! -f "$file" ] && continue
             
             echo "🔍 Processing changed file: $file"
@@ -111,25 +99,19 @@ jobs:
             new_line=$(printf "%s%*s%s" "$new_ruler" "$spaces_after" "" "$suffix")
 
             if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
-              # File already has header - check if it's valid or corrupted
-              
-              # Get the accurate creation date for comparison
               accurate_created=$(get_creation_date "$file")
               
-              # Check if header is corrupted/invalid
               header_lines=$(head -n 11 "$file")
               current_header_width=$(echo "$header_lines" | head -n 1 | wc -c)
-              current_header_width=$((current_header_width - 1))  # Remove newline character
+              current_header_width=$((current_header_width - 1))
               
               is_header_corrupted=false
               
-              # Check if header width doesn't match required format (85 chars)
               if [ "$current_header_width" -ne 85 ]; then
                 is_header_corrupted=true
                 echo "❌ Header corrupted for $filename (invalid width: $current_header_width ≠ 85)"
               fi
               
-              # Check if filename in header is correct
               current_line=$(grep -m1 -E "/\*   .*:\+:" "$file" 2>/dev/null || echo "")
               if [ -n "$current_line" ]; then
                 current_filename=$(echo "$current_line" | sed -E 's/\/\*   ([^ ]+).*/\1/')
@@ -139,7 +121,6 @@ jobs:
                 fi
               fi
               
-              # Check if creation date format is correct
               current_created_line=$(grep -E "Created: [0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}" "$file" 2>/dev/null || echo "")
               if [ -z "$current_created_line" ]; then
                 is_header_corrupted=true
@@ -147,23 +128,19 @@ jobs:
               fi
               
               if [ "$is_header_corrupted" = true ]; then
-                # Header is corrupted - REMOVE and REPLACE with new correct one
                 echo "🗑️  Removing corrupted header from $filename"
                 echo "🔄 Replacing with new compliant header"
                 
-                # Extract the original creation date from the existing header (if possible)
                 original_created=""
                 existing_created_line=$(grep -E "Created: [0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}" "$file" 2>/dev/null | head -n1 || echo "")
                 if [ -n "$existing_created_line" ]; then
                   original_created=$(echo "$existing_created_line" | sed -E 's/.*Created: ([0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}).*/\1/')
                 fi
                 
-                # If we couldn't extract the original date, use the accurate creation date as fallback
                 if [ -z "$original_created" ]; then
                   original_created="$accurate_created"
                 fi
                 
-                # Create new header with correct format, preserving original creation date
                 new_header=$(printf "%s\n" \
                   "/* ********************************************************************************* */" \
                   "/*                                                                                   */" \
@@ -177,7 +154,6 @@ jobs:
                   "/*                                                                                   */" \
                   "/* ********************************************************************************* */")
                 
-                # Apply dynamic spacing for filename line
                 new_header=$(echo "$new_header" | awk -v line="$new_line" '
                   /\/\*   .*:\+:/ {
                     print line
@@ -186,7 +162,6 @@ jobs:
                   { print }
                 ')
                 
-                # Replace the old corrupted header (first 11 lines) with new header
                 temp_file=$(mktemp)
                 echo "$new_header" > "$temp_file"
                 printf "\n" >> "$temp_file"
@@ -196,7 +171,6 @@ jobs:
                 echo "✅ Corrupted header removed and replaced for $filename (preserved original creation date: $original_created)"
                 ((fixed_corrupted_count++))
               else
-                # Header is valid - just update the timestamp
                 sed -i -E \
                   -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
                   "$file"
@@ -204,10 +178,8 @@ jobs:
                 ((updated_count++))
               fi
             else
-              # File doesn't have header, create new one with accurate creation date
               created=$(get_creation_date "$file")
               
-              # Create the reference header using printf to avoid YAML parsing issues
               reference_header=$(printf "%s\n" \
                 "/* ********************************************************************************* */" \
                 "/*                                                                                   */" \
@@ -240,28 +212,27 @@ jobs:
               echo "✅ New header added for $filename"
               ((new_header_count++))
             fi
-          done
+          done <<< "$changed_files"
 
-          # Save counts to environment variables for next step
           echo "UPDATED_COUNT=$updated_count" >> $GITHUB_ENV
           echo "NEW_HEADER_COUNT=$new_header_count" >> $GITHUB_ENV
           echo "FIXED_CORRUPTED_COUNT=$fixed_corrupted_count" >> $GITHUB_ENV
 
+          # Always exit successfully since we want to commit changes even if some files failed
+          exit 0
+
       - name: Commit Updated Headers
         if: steps.changed-files.outputs.changed_files != ''
         run: |
-          # Check if there are any changes to commit
           if git diff --quiet; then
             echo "No changes to commit"
             exit 0
           fi
 
-          # Create simple commit message
           commit_message="ci: Add 42 header"
           
           echo "Commit message: $commit_message"
           
-          # Add all changes and commit
           git add .
           git commit -m "$commit_message"
           git push
