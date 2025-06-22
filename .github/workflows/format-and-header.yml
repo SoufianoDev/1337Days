@@ -13,14 +13,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # This ensures we get full git history
+          fetch-depth: 2  # Need previous commit to compare changes
 
       - name: Setup Git
         run: |
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
+      - name: Get Changed and New Files
+        id: changed-files
+        run: |
+          # Get list of modified and added .c and .h files in this push
+          CHANGED_FILES=$(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep -E '\.(c|h)$' || echo "")
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Changed/Added C/H files found:"
+            echo "$CHANGED_FILES"
+          else
+            echo "No C/H files changed or added in this push"
+          fi
+
       - name: Process Headers
+        if: steps.changed-files.outputs.changed_files != ''
         run: |
           set -eo pipefail
           author="SoufianoDev"
@@ -65,8 +82,20 @@ jobs:
               echo "$(date +"%Y/%m/%d %H:%M:%S")"
             fi
           }
-
-          while IFS= read -r -d '' file; do
+          
+          # Read changed files from the previous step
+          changed_files="${{ steps.changed-files.outputs.changed_files }}"
+          
+          # Process only changed files
+          echo "$changed_files" | while IFS= read -r file; do
+            # Skip empty lines
+            [ -z "$file" ] && continue
+            
+            # Skip if file doesn't exist (might be deleted)
+            [ ! -f "$file" ] && continue
+            
+            echo "🔍 Processing changed file: $file"
+            
             filename=$(basename "$file")
             filename_len=${#filename}
             diff_len=$(( filename_len - ${#ref_filename} ))
@@ -76,35 +105,22 @@ jobs:
             new_line=$(printf "%s%*s%s" "$new_ruler" "$spaces_after" "" "$suffix")
 
             if head -n 1 "$file" | grep -q "/\* \*\*\*"; then
-              # File already has header, check if we need to update it
+              # File already has header - check if it's valid or corrupted
               
               # Get the accurate creation date for comparison
               accurate_created=$(get_creation_date "$file")
               
-              # Extract current creation date from header
-              current_created_line=$(grep -E "Created: [0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}" "$file" 2>/dev/null || echo "")
-              current_created=""
-              if [ -n "$current_created_line" ]; then
-                current_created=$(echo "$current_created_line" | sed -E 's/.*Created: ([0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}).*/\1/')
-              fi
-              
-              # Check if header format needs complete update (preventive measure)
+              # Check if header is corrupted/invalid
               header_lines=$(head -n 11 "$file")
               current_header_width=$(echo "$header_lines" | head -n 1 | wc -c)
               current_header_width=$((current_header_width - 1))  # Remove newline character
               
-              needs_complete_update=false
+              is_header_corrupted=false
               
-              # Check if header width doesn't match new format (85 chars)
+              # Check if header width doesn't match required format (85 chars)
               if [ "$current_header_width" -ne 85 ]; then
-                needs_complete_update=true
-                echo "🔄 Header format outdated for $filename (width: $current_header_width → 85)"
-              fi
-              
-              # Check if creation date needs correction
-              if [ -n "$current_created" ] && [ "$current_created" != "$accurate_created" ]; then
-                needs_complete_update=true
-                echo "⚠️  Correcting creation date for $filename: $current_created → $accurate_created"
+                is_header_corrupted=true
+                echo "❌ Header corrupted for $filename (invalid width: $current_header_width ≠ 85)"
               fi
               
               # Check if filename in header is correct
@@ -112,17 +128,22 @@ jobs:
               if [ -n "$current_line" ]; then
                 current_filename=$(echo "$current_line" | sed -E 's/\/\*   ([^ ]+).*/\1/')
                 if [ "$current_filename" != "$filename" ]; then
-                  needs_complete_update=true
-                  echo "📝 Correcting filename in header: $current_filename → $filename"
+                  is_header_corrupted=true
+                  echo "❌ Header corrupted for $filename (wrong filename: $current_filename ≠ $filename)"
                 fi
               fi
               
-              if [ "$needs_complete_update" = true ]; then
-                # Complete header replacement - preserve creation date if accurate, otherwise use corrected one
-                final_created="$accurate_created"
-                if [ -n "$current_created" ] && [ "$current_created" = "$accurate_created" ]; then
-                  final_created="$current_created"
-                fi
+              # Check if creation date format is correct
+              current_created_line=$(grep -E "Created: [0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}" "$file" 2>/dev/null || echo "")
+              if [ -z "$current_created_line" ]; then
+                is_header_corrupted=true
+                echo "❌ Header corrupted for $filename (invalid creation date format)"
+              fi
+              
+              if [ "$is_header_corrupted" = true ]; then
+                # Header is corrupted - REMOVE and REPLACE with new correct one
+                echo "🗑️  Removing corrupted header from $filename"
+                echo "🔄 Replacing with new compliant header"
                 
                 # Create new header with correct format
                 new_header=$(printf "%s\n" \
@@ -133,7 +154,7 @@ jobs:
                   "/*                                                            +:+ +:+         +:+    */" \
                   "/*   By: $author <$header_email>         +#+  +:+       +#+      */" \
                   "/*                                                         +#+#+#+#+#+   +#+         */" \
-                  "/*       Created: $final_created by $author            #+#    #+#           */" \
+                  "/*       Created: $accurate_created by $author            #+#    #+#           */" \
                   "/*       Updated: $updated by $author            ###   ########.fr    */" \
                   "/*                                                                                   */" \
                   "/* ********************************************************************************* */")
@@ -147,22 +168,20 @@ jobs:
                   { print }
                 ')
                 
-                # Replace the old header (first 11 lines) with new header
+                # Replace the old corrupted header (first 11 lines) with new header
                 temp_file=$(mktemp)
                 echo "$new_header" > "$temp_file"
                 printf "\n" >> "$temp_file"
                 tail -n +12 "$file" >> "$temp_file"
                 mv "$temp_file" "$file"
                 
-                echo "✅ Header completely updated for $filename"
+                echo "✅ Corrupted header removed and replaced for $filename"
               else
-                # Minor updates only if needed
-                if ! git diff --quiet HEAD -- "$file" 2>/dev/null; then
-                  # File has changes, update Updated date only
-                  sed -i -E \
-                    -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
-                    "$file"
-                fi
+                # Header is valid - just update the timestamp
+                sed -i -E \
+                  -e "s|(Updated: )[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} by [^ ]+|\1$updated by $author|" \
+                  "$file"
+                echo "⏰ Valid header - Updated timestamp only for $filename"
               fi
             else
               # File doesn't have header, create new one with accurate creation date
@@ -198,12 +217,13 @@ jobs:
               printf "\n" >> "$temp_file"
               cat "$file" >> "$temp_file"
               mv "$temp_file" "$file"
+              echo "✅ New header added for $filename"
             fi
-          done < <(find . -type f \( -name "*.c" -o -name "*.h" \) -print0)
+          done
 
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          commit_message: "ci: Add 42 header"
+          commit_message: "ci: Update 42 headers"
           commit_user_name: "${{ github.actor }}"
           commit_user_email: "${{ github.actor }}@users.noreply.github.com"
