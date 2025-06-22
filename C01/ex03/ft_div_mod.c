@@ -5,8 +5,8 @@
 /*                                                            +:+ +:+         +:+    */
 /*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
 /*                                                         +#+#+#+#+#+   +#+         */
-/*       Created: 2025/06/22 01:31:44 by SoufianoDev            #+#    #+#           */
-/*       Updated: 2025/06/22 01:35:03 by SoufianoDev            ###   ########.fr    */
+/*       Created: 2025/06/21 23:17:28 by SoufianoDev            #+#    #+#           */
+/*       Updated: 2025/06/21 01:35:03 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
 
@@ -14,11 +14,9 @@
 
 
 
+void ft_div_mod(int a, int b, int *div, int *mod){
 
-void ft_div_mod(int y, int z, int *div, int *mod){
-
-    *div = y / z ;
-    *mod = y % z ;
+    *div = a / b ;
+    *mod = a % b ;
 
 }
-
