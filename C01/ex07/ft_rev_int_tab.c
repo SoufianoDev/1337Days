@@ -1,7 +1,5 @@
 
 
-
-
 void ft_rev_int_tab(int *tab, int size){
 
 int  temp , i = 0 , j = size - 1 ;
