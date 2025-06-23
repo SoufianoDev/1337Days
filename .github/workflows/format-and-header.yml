@@ -195,8 +195,8 @@ jobs:
               
               new_header=$(echo "$reference_header" | \
                 sed -e "s|ft_putchar.c|${filename}|" \
-                    -e "s|2025/06/17 02:01:35|${created}|" \
-                    -e "s|2025/06/17 01:01:51|${updated}|")
+                    -e "s|2025/06/17 02:01:35|${updated}|" \
+                    -e "s|2025/06/17 01:01:51|${created}|")
               new_header=$(echo "$new_header" | awk -v line="$new_line" '
                 /\/\*   .*:\+:/ {
                   print line
