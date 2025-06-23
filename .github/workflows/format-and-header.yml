@@ -189,10 +189,11 @@ jobs:
                 "/*                                                                                   */" \
                 "/* ********************************************************************************* */")
               
+              # FIXED: Corrected the order - Created goes to Created line, Updated goes to Updated line
               new_header=$(echo "$reference_header" | \
                 sed -e "s|ft_putchar.c|${filename}|" \
-                    -e "s|2025/06/17 02:01:35|${updated_from_git}|" \
-                    -e "s|2025/06/17 01:01:51|${created_from_git}|")
+                    -e "s|Created: 2025/06/17 02:01:35|Created: ${created_from_git}|" \
+                    -e "s|Updated: 2025/06/17 01:01:51|Updated: ${updated_from_git}|")
               new_header=$(echo "$new_header" | awk -v line="$new_line" '
                 /\/\*   .*:\+:/ {
                   print line
