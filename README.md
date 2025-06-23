@@ -24,9 +24,13 @@ The *Piscine* ("swimming pool" in French) is an intense **4-week bootcamp** wher
 
 ## 📂 Repository Layout
 
-| Path   | Description                                                                                            |
-| ------ | ------------------------------------------------------------------------------------------------------ |
-| `C00/` | **Introduction to C** – printing characters, numbers & combinations (`ft_putchar`, `ft_print_comb`, …) |
+| Path   | Description                                                                                                 |
+| ------ | ----------------------------------------------------------------------------------------------------------- |
+| `C00/` | **Introduction to C** – Printing characters, numbers, combinations (`ft_putchar`, `ft_print_comb`, etc.)    |
+| `C01/` | **Pointers & Basic Memory Manipulation** – Swapping values, pointer arithmetic, arrays, string length, etc. |
+| `C02/` | **String Functions** – Implementing `strcpy`, `strncpy`, `str_is_alpha`, `strcat`, comparisons, and casing. |
+
+
 
 > ℹ️  Each `CXX` folder mirrors the official Piscine subject structure. Source files follow **Norminette** guidelines.
 
