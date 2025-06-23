@@ -43,6 +43,8 @@ jobs:
           set +e
           author="SoufianoDev"
           header_email="contact.devsoufiano@gmail.com"
+          # Set timezone to Morocco (UTC+1)
+          export TZ='Africa/Casablanca'
           updated=$(date +"%Y/%m/%d %H:%M:%S")
           target_length=85
           ref_filename="ft_putchar.c"
@@ -62,12 +64,14 @@ jobs:
             local git_first_commit=""
             local filesystem_creation=""
             
+            # Set timezone for git log as well
+            export TZ='Africa/Casablanca'
             git_first_commit=$(git log --reverse --format="%ad" --date=format:"%Y/%m/%d %H:%M:%S" -- "$file" 2>/dev/null | head -n1 || echo "")
             
             if command -v stat >/dev/null 2>&1; then
               filesystem_creation=$(stat -c "%W" "$file" 2>/dev/null || echo "")
               if [ "$filesystem_creation" != "" ] && [ "$filesystem_creation" != "0" ]; then
-                filesystem_creation=$(date -d "@$filesystem_creation" +"%Y/%m/%d %H:%M:%S" 2>/dev/null || echo "")
+                filesystem_creation=$(TZ='Africa/Casablanca' date -d "@$filesystem_creation" +"%Y/%m/%d %H:%M:%S" 2>/dev/null || echo "")
               else
                 filesystem_creation=""
               fi
@@ -78,7 +82,7 @@ jobs:
             elif [ -n "$filesystem_creation" ]; then
               echo "$filesystem_creation"
             else
-              echo "$(date +"%Y/%m/%d %H:%M:%S")"
+              echo "$(TZ='Africa/Casablanca' date +"%Y/%m/%d %H:%M:%S")"
             fi
           }
           
