@@ -6,9 +6,10 @@
 /*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
 /*                                                         +#+#+#+#+#+   +#+         */
 /*       Created: 2025/06/24 00:59:13 by SoufianoDev            #+#    #+#           */
-/*       Updated: 2025/06/24 00:59:13 by SoufianoDev            ###   ########.fr    */
+/*       Updated: 2025/06/24 01:08:19 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
+
 
 
 int ft_str_is_uppercase(char *str){
