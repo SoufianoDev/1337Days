@@ -25,8 +25,8 @@ void	ft_putstr_non_printable(char *str)
 {
 	int		i;
 	char	c;
-	char	HEX_HIGH_NIBBLE;
-	char	HEX_LOW_NIBBLE;
+	char	hex_high_nibble;
+	char	hex_low_nibble;
 
 	i = 0;
 	while (str[i] != '\0')
@@ -37,10 +37,10 @@ void	ft_putstr_non_printable(char *str)
 		else
 		{
 			write(1, "\\", 1);
-			HEX_HIGH_NIBBLE = to_hex((unsigned char)c / 16);
-			HEX_LOW_NIBBLE = to_hex((unsigned char)c % 16);
-			write(1, &HEX_HIGH_NIBBLE, 1);
-			write(1, &HEX_LOW_NIBBLE, 1);
+			hex_high_nibble = to_hex((unsigned char)c / 16);
+			hex_low_nibble = to_hex((unsigned char)c % 16);
+			write(1, &hex_high_nibble, 1);
+			write(1, &hex_low_nibble, 1);
 		}
 		i++;
 	}
