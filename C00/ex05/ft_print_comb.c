@@ -18,7 +18,7 @@
 
 void ft_print_comb(void)
 {
-	char i = '0', j = '1', k = '2';
+	char i = '0'; j = '1', k = '2';
 
 	while (1)
 	{
@@ -27,7 +27,7 @@ void ft_print_comb(void)
 			write(1, &i, 1);
 			write(1, &j, 1);
 			write(1, &k, 1);
-			if (i ! = '7' || j ! = '8' || k ! = '9')
+			if (i != '7' || j != '8' || k != '9')
 			write(1, ", ", 2);
 			else
 			break;
@@ -38,3 +38,6 @@ void ft_print_comb(void)
 		k = j + 1;
 	}
 }
+
+
+
