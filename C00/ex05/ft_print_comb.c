@@ -13,13 +13,13 @@
 
 
 
-
-
 #include <unistd.h> 
 
 void ft_print_comb(void)
 {
-	char i = '0'; j = '1', k = '2';
+	char i = '0';
+	char j = '1';
+	char k = '2';
 
 	while (1)
 	{
