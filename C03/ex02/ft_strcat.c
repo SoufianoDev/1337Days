@@ -6,9 +6,10 @@
 /*   By: SoufianoDev <contact.devsoufiano@gmail.com>         +#+  +:+       +#+      */
 /*                                                         +#+#+#+#+#+   +#+         */
 /*       Created: 2025/06/30 13:30:12 by SoufianoDev            #+#    #+#           */
-/*       Updated: 2025/06/30 13:31:42 by SoufianoDev            ###   ########.fr    */
+/*       Updated: 2025/07/01 18:35:53 by SoufianoDev            ###   ########.fr    */
 /*                                                                                   */
 /* ********************************************************************************* */
+
 
 char *ft_strcat(char *dest, char *src)
 {
